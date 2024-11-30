@@ -15,10 +15,10 @@ func main () {
   if err != nil {
     panic(err)
   }
+  // Routine to periodically update Stats
   go func() {
     ticker := time.NewTicker(5 * time.Second)
     defer ticker.Stop()
-    
     for {
       select {
         case <- ticker.C:

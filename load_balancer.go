@@ -23,6 +23,7 @@ type BackendService struct {
 }
 
 type LoadBalancer struct {
+  ServiceName string
   Services []BackendService
   index uint8
   DockerClient *client.Client
@@ -33,8 +34,11 @@ func NewLoadBalancer() (*LoadBalancer, error) {
   if err != nil {
       return nil, err
   }
-  BackendServices := CreateBackendServices(cli)
+
+  BackendServices, ServiceName := CreateBackendServices(cli)
+  fmt.Printf("service: %q", ServiceName)
   return &LoadBalancer{
+    ServiceName: ServiceName,
     Services: BackendServices,
     index: 0,
     DockerClient: cli,

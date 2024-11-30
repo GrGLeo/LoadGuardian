@@ -8,8 +8,9 @@ import (
 )
 
 
-func CreateBackendServices(cli *client.Client) []BackendService {
+func CreateBackendServices(cli *client.Client) ([]BackendService, string) {
   var Services []BackendService
+  var serviceName string
   // List all container
   containers, err := cli.ContainerList(context.Background(), container.ListOptions{All: true})
   if err != nil {
@@ -19,6 +20,7 @@ func CreateBackendServices(cli *client.Client) []BackendService {
   // Loop through the containers & only continue on labelled one
   for _, container := range containers {
     if container.Labels["LoadBalanced"] == "true" {
+      serviceName = container.Labels["com.docker.compose.service"]
 
       containerInfo, err := cli.ContainerInspect(context.Background(), container.ID)
       if err != nil {
@@ -43,5 +45,5 @@ func CreateBackendServices(cli *client.Client) []BackendService {
       }
     }
   }
-  return Services
+  return Services, serviceName
 }
