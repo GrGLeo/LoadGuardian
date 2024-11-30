@@ -1,10 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
+//  "github.com/docker/docker/api/types/container"
+  "github.com/docker/docker/client"
 )
 
 
@@ -18,8 +19,22 @@ type BackendService struct {
 type LoadBalancer struct {
   Services []BackendService
   index uint8
+  DockerClient *client.Client
 }
 
+func NewLoadBalancer() (*LoadBalancer, error) {
+  cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+  if err != nil {
+      return nil, err
+  }
+  BackendServices := CreateBackendServices(cli)
+  return &LoadBalancer{
+    Services: BackendServices,
+    index: 0,
+    DockerClient: cli,
+  }, nil
+
+}
 func (lb *LoadBalancer) getAlgorithm() string {
   // TODO: implement loadign algorithm from docker compose label
   return ""
@@ -42,7 +57,6 @@ func (lb *LoadBalancer) getStats() {
 func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
   BackendURL := lb.getNextBackend()
   targetURL := BackendURL + r.URL.Path
-  fmt.Printf("\n1: %q\n", targetURL)
 
   var body io.Reader
       if r.Body != nil {
@@ -52,7 +66,6 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
       }
 
   req, err := http.NewRequest(r.Method, targetURL, body)
-  fmt.Printf("\n2: %q\n", targetURL)
   if err != nil {
     http.Error(w, "Failed to create request", 500)
     return
@@ -62,13 +75,10 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
       req.Header.Add(key, value)
     }
   }
-  fmt.Printf("\n3: %q\n", targetURL)
 
   client := &http.Client{}
   resp, err := client.Do(req)
-  fmt.Printf("\n4: %q\n", targetURL)
   if err != nil {
-    fmt.Printf("\n5: %q\n", targetURL)
     http.Error(w, "Failed to forward request", 500)
     return
   }
@@ -79,7 +89,6 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
       w.Header().Add(key, value)
     }
   }
-  fmt.Printf("\n%q\n", targetURL)
   
   w.WriteHeader(resp.StatusCode)
   io.Copy(w, resp.Body)

@@ -8,16 +8,8 @@ import (
 )
 
 
-func CreateBackendServices() []BackendService {
+func CreateBackendServices(cli *client.Client) []BackendService {
   var Services []BackendService
-
-  // Create Docker client
-  cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-  if err != nil {
-      panic(err)
-  }
-  defer cli.Close()
-
   // List all container
   containers, err := cli.ContainerList(context.Background(), container.ListOptions{All: true})
   if err != nil {
