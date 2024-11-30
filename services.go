@@ -24,10 +24,19 @@ func CreateBackendServices(cli *client.Client) []BackendService {
       if err != nil {
         fmt.Printf("Error inspecting container: %v", err)
       }
+      // extract memory limit
+      Memory := containerInfo.HostConfig.Memory
+
       // TODO: there should be a better way to do this.
       if len(containerInfo.NetworkSettings.Ports) > 0 {
         for port := range containerInfo.NetworkSettings.Ports {
-          Services = append(Services, BackendService{ID: container.ID, Endpoint: "http:/"+container.Names[0]+":"+port.Port(), Connection: 0})
+          backend := BackendService{
+            ID: container.ID,
+            Endpoint: "http:/"+container.Names[0]+":"+port.Port(),
+            Connection: 0,
+            MemoryLimit: Memory,
+          }
+          Services = append(Services, backend)
         }
       } else {
         fmt.Println("No ports exposed or mapped.")

@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
-//  "github.com/docker/docker/api/types/container"
-  "github.com/docker/docker/client"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
 )
 
 
@@ -14,6 +18,8 @@ type BackendService struct {
   ID string
   Endpoint string
   Connection int
+  MemoryLimit int64
+  CPULimit int64
 }
 
 type LoadBalancer struct {
@@ -33,10 +39,10 @@ func NewLoadBalancer() (*LoadBalancer, error) {
     index: 0,
     DockerClient: cli,
   }, nil
-
 }
+
 func (lb *LoadBalancer) getAlgorithm() string {
-  // TODO: implement loadign algorithm from docker compose label
+  // TODO: implement loading algorithm from docker compose label
   return ""
 }
 
@@ -49,9 +55,6 @@ func (lb *LoadBalancer) getNextBackend() string {
 func (lb *LoadBalancer) getRandomBackend() string {
   index := rand.Intn(len(lb.Services))
   return lb.Services[index].Endpoint
-}
-
-func (lb *LoadBalancer) getStats() {
 }
 
 func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
@@ -92,4 +95,36 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
   
   w.WriteHeader(resp.StatusCode)
   io.Copy(w, resp.Body)
+}
+
+func (lb *LoadBalancer) getContainerStats() error {
+	ctx := context.Background()
+  for _, cont := range lb.Services { 
+    containerID := cont.ID
+    stats, err := lb.DockerClient.ContainerStats(ctx, containerID, false)
+    if err != nil {
+      return fmt.Errorf("failed to get container stats: %w", err)
+    }
+    defer stats.Body.Close()
+
+    var statsInfo container.StatsResponse
+    if err := json.NewDecoder(stats.Body).Decode(&statsInfo); err != nil {
+      return fmt.Errorf("failed to decode container stats: %w", err)
+    }
+
+    // Not used yet CPU limit
+    //cpuDelta := float64(statsInfo.CPUStats.CPUUsage.TotalUsage - statsInfo.PreCPUStats.CPUUsage.TotalUsage)
+    //systemDelta := float64(statsInfo.CPUStats.SystemUsage - statsInfo.PreCPUStats.SystemUsage)
+    //numCores := float64(len(statsInfo.CPUStats.CPUUsage.PercpuUsage))
+    //cpuUsage := (cpuDelta / systemDelta) * numCores * 100.0
+
+    memoryUsage := float64(statsInfo.MemoryStats.Usage) / (1024 * 1024) // Convert to MB
+    memoryLimit := float64(cont.MemoryLimit) / (1024 * 1024) // Convert to MB
+    memoryPercent := (memoryUsage / memoryLimit) * 100.0
+
+    fmt.Printf("Container ID: %s\n", containerID)
+    fmt.Printf("Memory Usage: %.2f MB / %.2f MB (%.2f%%)\n", memoryUsage, memoryLimit, memoryPercent)
+  }
+
+	return nil
 }

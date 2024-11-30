@@ -20,6 +20,9 @@ services:
       - "LoadBalanced=true"
     deploy:
       replicas: 2
+      resources:
+        limits:
+          memory: 512M
 
 networks:
   app-network:
