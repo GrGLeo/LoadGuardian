@@ -125,6 +125,9 @@ func (lb *LoadBalancer) getContainerStats() error {
     memoryUsage := float64(statsInfo.MemoryStats.Usage) / (1024 * 1024) // Convert to MB
     memoryLimit := float64(cont.MemoryLimit) / (1024 * 1024) // Convert to MB
     memoryPercent := (memoryUsage / memoryLimit) * 100.0
+    if memoryPercent > 80.00{
+      fmt.Print("\nMemory Limit close to max\n")
+    }
 
     fmt.Printf("Container ID: %s\n", containerID)
     fmt.Printf("Memory Usage: %.2f MB / %.2f MB (%.2f%%)\n", memoryUsage, memoryLimit, memoryPercent)
