@@ -3,11 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
-	"sort"
 	"sync/atomic"
 
 	"github.com/docker/docker/api/types/container"
@@ -49,65 +48,15 @@ func NewLoadBalancer() (*LoadBalancer, error) {
   }, nil
 }
 
-func (lb *LoadBalancer) getBackend() *BackendService {
-  switch lb.Algorithm {
-  case "leastconnection":
-    return lb.getLeastConnection()
-  case "roundrobin":
-    return lb.getNextBackend()
-  case "random":
-    return lb.getRandomBackend()
-  default:
-    return lb.getRandomBackend()
-  }
-}
-
-func (lb *LoadBalancer) getNextBackend() *BackendService {
-  mod := uint8(len(lb.Services))
-  lb.index = (lb.index + 1) % mod
-  return &lb.Services[lb.index]
-}
-
-func (lb *LoadBalancer) getRandomBackend() *BackendService {
-  index := rand.Intn(len(lb.Services))
-  return &lb.Services[index]
-}
-
-func (lb *LoadBalancer) getLeastConnection() *BackendService {
-  sort.Slice(lb.Services, func(i, j int) bool {
-    return lb.Services[i].Connection < lb.Services[j].Connection
-  })
-  return &lb.Services[0]
-}
 
 func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
   backend := lb.getBackend()
   targetURL := backend.Endpoint + r.URL.Path
-
-  var body io.Reader
-      if r.Body != nil {
-          body = r.Body
-      } else {
-          body = http.NoBody
-      }
-
-  req, err := http.NewRequest(r.Method, targetURL, body)
+  // This could not be the best way cause on 404 i'll still get a container error
+  resp, err := ForwardRequests(targetURL, w, r)
   if err != nil {
-    http.Error(w, "Failed to create request", 500)
-    return
-  }
-  for key, values := range r.Header {
-    for _, value := range values {
-      req.Header.Add(key, value)
-    }
   }
 
-  client := &http.Client{}
-  resp, err := client.Do(req)
-  if err != nil {
-    http.Error(w, "Failed to forward request", 500)
-    return
-  }
   atomic.AddInt32(&backend.Connection, 1)
   backend.Connection++
   defer resp.Body.Close()
@@ -157,3 +106,31 @@ func (lb *LoadBalancer) getContainerStats() error {
 
 	return nil
 }
+
+func ForwardRequests(targetURL string, w http.ResponseWriter, r *http.Request) (*http.Response, error) {
+  var body io.Reader
+  if r.Body != nil {
+    body = r.Body
+  } else {
+    body = http.NoBody
+  }
+
+  req, err := http.NewRequest(r.Method, targetURL, body)
+  if err != nil {
+    http.Error(w, "Failed to create request", 500)
+    return nil, err
+  }
+  for key, values := range r.Header {
+    for _, value := range values {
+      req.Header.Add(key, value)
+    }
+  }
+
+  client := &http.Client{}
+  resp, err := client.Do(req)
+  if err != nil {
+    return nil, errors.New("Container not responding")
+  }
+  return resp, nil
+}
+
