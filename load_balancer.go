@@ -26,6 +26,7 @@ type BackendService struct {
 
 type LoadBalancer struct {
   ServiceName string
+  Algorithm string
   Services []BackendService
   index uint8
   DockerClient *client.Client
@@ -37,19 +38,28 @@ func NewLoadBalancer() (*LoadBalancer, error) {
       return nil, err
   }
 
-  BackendServices, ServiceName := CreateBackendServices(cli)
-  fmt.Printf("service: %q", ServiceName)
+  BackendServices, ServiceName, algo := CreateBackendServices(cli)
+  fmt.Printf("\nLoad Balancing started: %q, Algorithm used: %q", ServiceName, algo)
   return &LoadBalancer{
     ServiceName: ServiceName,
+    Algorithm: algo,
     Services: BackendServices,
     index: 0,
     DockerClient: cli,
   }, nil
 }
 
-func (lb *LoadBalancer) getAlgorithm() string {
-  // TODO: implement loading algorithm from docker compose label
-  return ""
+func (lb *LoadBalancer) getBackend() *BackendService {
+  switch lb.Algorithm {
+  case "leastconnection":
+    return lb.getLeastConnection()
+  case "roundrobin":
+    return lb.getNextBackend()
+  case "random":
+    return lb.getRandomBackend()
+  default:
+    return lb.getRandomBackend()
+  }
 }
 
 func (lb *LoadBalancer) getNextBackend() *BackendService {
@@ -71,7 +81,7 @@ func (lb *LoadBalancer) getLeastConnection() *BackendService {
 }
 
 func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
-  backend := lb.getNextBackend()
+  backend := lb.getBackend()
   targetURL := backend.Endpoint + r.URL.Path
 
   var body io.Reader

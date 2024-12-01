@@ -8,9 +8,11 @@ import (
 )
 
 
-func CreateBackendServices(cli *client.Client) ([]BackendService, string) {
+func CreateBackendServices(cli *client.Client) ([]BackendService, string, string) {
   var Services []BackendService
   var serviceName string
+  algo := "random"
+  // TODO: add filter on both labels to avoid looping all container
   // List all container
   containers, err := cli.ContainerList(context.Background(), container.ListOptions{All: true})
   if err != nil {
@@ -19,6 +21,11 @@ func CreateBackendServices(cli *client.Client) ([]BackendService, string) {
 
   // Loop through the containers & only continue on labelled one
   for _, container := range containers {
+    // Get load balancing algorithm
+    if v, ok := container.Labels["BalanceAlgorithm"]; ok {
+      algo = v
+    }
+    // Extact info on service that is balance
     if container.Labels["LoadBalanced"] == "true" {
       serviceName = container.Labels["com.docker.compose.service"]
 
@@ -45,5 +52,5 @@ func CreateBackendServices(cli *client.Client) ([]BackendService, string) {
       }
     }
   }
-  return Services, serviceName
+  return Services, serviceName, algo
 }
