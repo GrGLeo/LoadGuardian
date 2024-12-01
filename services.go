@@ -1,10 +1,12 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "github.com/docker/docker/api/types/container"
-    "github.com/docker/docker/client"
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
 )
 
 
@@ -55,4 +57,31 @@ func CreateBackendServices(cli *client.Client) ([]BackendService, string, string
     }
   }
   return Services, serviceName, algo
+}
+
+func CreateBackend(cli *client.Client, containerID string) (BackendService, error) {
+  containerInfo, err := cli.ContainerInspect(context.Background(), containerID)
+  if err != nil {
+    fmt.Printf("Error inspecting container: %v", err)
+  }
+  // extract memory limit
+  Memory := containerInfo.HostConfig.Memory
+
+  // TODO: there should be a better way to do this.
+  if len(containerInfo.NetworkSettings.Ports) > 0 {
+    for port := range containerInfo.NetworkSettings.Ports {
+      backend := BackendService{
+        ID: containerID,
+        Endpoint: "http:/"+containerInfo.Name+":"+port.Port(),
+        Connection: 0,
+        MemoryLimit: Memory,
+        // bold assumption
+        Healthy: true,
+      }
+      return backend, nil
+    }
+  } else {
+    fmt.Println("No ports exposed or mapped.")
+  }
+  return BackendService{}, errors.New("Error while getting service info")
 }
