@@ -7,6 +7,8 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"sort"
+	"sync/atomic"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -17,7 +19,7 @@ import (
 type BackendService struct {
   ID string
   Endpoint string
-  Connection int
+  Connection int32
   MemoryLimit int64
   CPULimit int64
 }
@@ -50,20 +52,27 @@ func (lb *LoadBalancer) getAlgorithm() string {
   return ""
 }
 
-func (lb *LoadBalancer) getNextBackend() string {
+func (lb *LoadBalancer) getNextBackend() *BackendService {
   mod := uint8(len(lb.Services))
   lb.index = (lb.index + 1) % mod
-  return lb.Services[lb.index].Endpoint
+  return &lb.Services[lb.index]
 }
 
-func (lb *LoadBalancer) getRandomBackend() string {
+func (lb *LoadBalancer) getRandomBackend() *BackendService {
   index := rand.Intn(len(lb.Services))
-  return lb.Services[index].Endpoint
+  return &lb.Services[index]
+}
+
+func (lb *LoadBalancer) getLeastConnection() *BackendService {
+  sort.Slice(lb.Services, func(i, j int) bool {
+    return lb.Services[i].Connection < lb.Services[j].Connection
+  })
+  return &lb.Services[0]
 }
 
 func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
-  BackendURL := lb.getNextBackend()
-  targetURL := BackendURL + r.URL.Path
+  backend := lb.getNextBackend()
+  targetURL := backend.Endpoint + r.URL.Path
 
   var body io.Reader
       if r.Body != nil {
@@ -89,6 +98,8 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
     http.Error(w, "Failed to forward request", 500)
     return
   }
+  atomic.AddInt32(&backend.Connection, 1)
+  backend.Connection++
   defer resp.Body.Close()
 
   for key, values := range resp.Header{
@@ -99,6 +110,7 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
   
   w.WriteHeader(resp.StatusCode)
   io.Copy(w, resp.Body)
+  atomic.AddInt32(&backend.Connection, -1)
 }
 
 func (lb *LoadBalancer) getContainerStats() error {
