@@ -44,6 +44,8 @@ func CreateBackendServices(cli *client.Client) ([]BackendService, string, string
             Endpoint: "http:/"+container.Names[0]+":"+port.Port(),
             Connection: 0,
             MemoryLimit: Memory,
+            // bold assumption
+            Healthy: true,
           }
           Services = append(Services, backend)
         }

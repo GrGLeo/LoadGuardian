@@ -13,16 +13,6 @@ import (
 	"github.com/docker/docker/client"
 )
 
-
-
-type BackendService struct {
-  ID string
-  Endpoint string
-  Connection int32
-  MemoryLimit int64
-  CPULimit int64
-}
-
 type LoadBalancer struct {
   ServiceName string
   Algorithm string
@@ -48,25 +38,55 @@ func NewLoadBalancer() (*LoadBalancer, error) {
   }, nil
 }
 
+func (lb *LoadBalancer) RemoveDeadServices() {
+  var newServices []BackendService
+  for _, cont := range lb.Services {
+    if cont.Healthy {
+      newServices = append(newServices, cont)
+    }
+  }
+  lb.Services = newServices
+  fmt.Println(newServices)
+}
+
 
 func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
-  backend := lb.getBackend()
-  targetURL := backend.Endpoint + r.URL.Path
-  // This could not be the best way cause on 404 i'll still get a container error
-  resp, err := ForwardRequests(targetURL, w, r)
-  if err != nil {
+  var backend *BackendService
+  var resp *http.Response
+  var err error
+
+  for len(lb.Services) > 0 {
+    backend = lb.getBackend()
+    targetURL := backend.Endpoint + r.URL.Path
+    resp, err = ForwardRequests(targetURL, w, r)
+    // Forwarded to the service
+    if err == nil {
+      break
+    }
+    // Verifying container
+    if err.Error() == "Container not responding" {
+      fmt.Println("Checking container status")
+      backend.CheckStatus(lb.DockerClient)
+      lb.RemoveDeadServices()
+    }
+  }
+
+  // No more service available
+  if resp == nil {
+    fmt.Println("Failed to found avaible service")
+    http.Error(w, "Service unavailable", 503)
+    return
   }
 
   atomic.AddInt32(&backend.Connection, 1)
-  backend.Connection++
   defer resp.Body.Close()
 
+  // Return response
   for key, values := range resp.Header{
     for _, value := range values {
       w.Header().Add(key, value)
     }
   }
-  
   w.WriteHeader(resp.StatusCode)
   io.Copy(w, resp.Body)
   atomic.AddInt32(&backend.Connection, -1)
@@ -100,8 +120,8 @@ func (lb *LoadBalancer) getContainerStats() error {
       fmt.Print("\nMemory Limit close to max\n")
     }
 
-    fmt.Printf("Container ID: %s\n", containerID)
-    fmt.Printf("Memory Usage: %.2f MB / %.2f MB (%.2f%%)\n", memoryUsage, memoryLimit, memoryPercent)
+    // fmt.Printf("Container ID: %s\n", containerID)
+    // fmt.Printf("Memory Usage: %.2f MB / %.2f MB (%.2f%%)\n", memoryUsage, memoryLimit, memoryPercent)
   }
 
 	return nil
