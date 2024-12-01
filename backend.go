@@ -34,4 +34,5 @@ func (back *BackendService) RestartService (cli *client.Client) {
   if err != nil {
     fmt.Println("Failed to restart container.")
   }
+  fmt.Println("Container %q started", back.ID)
 }

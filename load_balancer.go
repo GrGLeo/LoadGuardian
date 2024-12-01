@@ -28,7 +28,7 @@ func NewLoadBalancer() (*LoadBalancer, error) {
   }
 
   BackendServices, ServiceName, algo := CreateBackendServices(cli)
-  fmt.Printf("\nLoad Balancing started: %q, Algorithm used: %q", ServiceName, algo)
+  fmt.Println("Load Balancing started: %q, Algorithm used: %q", ServiceName, algo)
   return &LoadBalancer{
     ServiceName: ServiceName,
     Algorithm: algo,
@@ -92,7 +92,22 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
   atomic.AddInt32(&backend.Connection, -1)
 }
 
-func (lb *LoadBalancer) getContainerStats() error {
+func (lb *LoadBalancer) Monitor() error {
+  err := lb.MonitorStats()
+  lb.MonitorHealth()
+  return err
+}
+
+func (lb *LoadBalancer) MonitorHealth()  {
+  for _, cont := range lb.Services {
+    cont.CheckStatus(lb.DockerClient)
+    if !cont.Healthy {
+      cont.RestartService(lb.DockerClient)
+    }
+  }
+}
+
+func (lb *LoadBalancer) MonitorStats() error {
 	ctx := context.Background()
   for _, cont := range lb.Services { 
     containerID := cont.ID

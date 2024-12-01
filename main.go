@@ -22,7 +22,7 @@ func main () {
     for {
       select {
         case <- ticker.C:
-          err := lb.getContainerStats()
+          err := lb.Monitor()
           if err != nil {
             fmt.Printf("Error getting docker stats: %v\n", err)
           }
