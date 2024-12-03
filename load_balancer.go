@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"sync/atomic"
 
 	"github.com/docker/docker/api/types/container"
@@ -19,6 +20,7 @@ type LoadBalancer struct {
   Services []BackendService
   index uint8
   DockerClient *client.Client
+  mu sync.Mutex
 }
 
 func NewLoadBalancer() (*LoadBalancer, error) {
@@ -28,13 +30,14 @@ func NewLoadBalancer() (*LoadBalancer, error) {
   }
 
   BackendServices, ServiceName, algo := CreateBackendServices(cli)
-  fmt.Println("Load Balancing started: %q, Algorithm used: %q", ServiceName, algo)
+  fmt.Println("Load Balancing started: ", ServiceName, " ", "Algorithm used: ", algo)
   return &LoadBalancer{
     ServiceName: ServiceName,
     Algorithm: algo,
     Services: BackendServices,
     index: 0,
     DockerClient: cli,
+    mu: sync.Mutex{},
   }, nil
 }
 
@@ -49,6 +52,17 @@ func (lb *LoadBalancer) RemoveDeadServices() {
   fmt.Println(newServices)
 }
 
+func (lb *LoadBalancer) ScaleUp() {
+  newID := lb.Services[0].ScaleUpService(lb.DockerClient)
+  backend, err := CreateBackend(lb.DockerClient, newID)
+  if err != nil {
+    fmt.Println(err.Error())
+  }
+  lb.Services = append(lb.Services, backend)
+}
+
+func (lb *LoadBalancer) ScaleDown(index int) {
+}
 
 func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
   var backend *BackendService

@@ -36,7 +36,7 @@ func main () {
     for {
       select {
         case <- ticker.C:
-          newID := lb.Services[0].ScaleService(lb.DockerClient)
+          newID := lb.Services[0].ScaleUpService(lb.DockerClient)
           backend, err := CreateBackend(lb.DockerClient, newID)
           if err != nil {
             fmt.Println(err.Error())
@@ -45,6 +45,7 @@ func main () {
         }
       }
     }()
+  lb.Services[0].ScaleDownService(lb.DockerClient)
 
   http.HandleFunc("/", lb.handleRequest)
   http.ListenAndServe(":8080", nil)
