@@ -3,12 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -20,6 +17,8 @@ type LoadBalancer struct {
   Services []BackendService
   index uint8
   DockerClient *client.Client
+  LastScaled time.Time
+  CooldownPeriod time.Duration
   mu sync.Mutex
 }
 
@@ -37,6 +36,8 @@ func NewLoadBalancer() (*LoadBalancer, error) {
     Services: BackendServices,
     index: 0,
     DockerClient: cli,
+    LastScaled: time.Now(),
+    CooldownPeriod: 3 * time.Minute,
     mu: sync.Mutex{},
   }, nil
 }
@@ -59,51 +60,19 @@ func (lb *LoadBalancer) ScaleUp() {
     fmt.Println(err.Error())
   }
   lb.Services = append(lb.Services, backend)
+  lb.LastScaled = time.Now()
 }
 
 func (lb *LoadBalancer) ScaleDown(index int) {
-}
-
-func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
-  var backend *BackendService
-  var resp *http.Response
-  var err error
-
-  for len(lb.Services) > 0 {
-    backend = lb.getBackend()
-    targetURL := backend.Endpoint + r.URL.Path
-    resp, err = ForwardRequests(targetURL, w, r)
-    // Forwarded to the service
-    if err == nil {
-      break
-    }
-    // Verifying container
-    if err.Error() == "Container not responding" {
-      fmt.Println("Checking container status")
-      backend.CheckStatus(lb.DockerClient)
-      lb.RemoveDeadServices()
+  // Avoid scaling down newly created container
+  if time.Since(lb.LastScaled) > lb.CooldownPeriod {
+    lb.Services[index].ScaleDownService(lb.DockerClient)
+    if len(lb.Services) == 1 {
+      lb.Services = []BackendService{lb.Services[0]}
+    } else {
+      lb.Services = append(lb.Services[:index], lb.Services[index+1:]...)
     }
   }
-
-  // No more service available
-  if resp == nil {
-    fmt.Println("Failed to found avaible service")
-    http.Error(w, "Service unavailable", 503)
-    return
-  }
-
-  atomic.AddInt32(&backend.Connection, 1)
-  defer resp.Body.Close()
-
-  // Return response
-  for key, values := range resp.Header{
-    for _, value := range values {
-      w.Header().Add(key, value)
-    }
-  }
-  w.WriteHeader(resp.StatusCode)
-  io.Copy(w, resp.Body)
-  atomic.AddInt32(&backend.Connection, -1)
 }
 
 func (lb *LoadBalancer) Monitor() error {
@@ -123,7 +92,7 @@ func (lb *LoadBalancer) MonitorHealth()  {
 
 func (lb *LoadBalancer) MonitorStats() error {
 	ctx := context.Background()
-  for _, cont := range lb.Services { 
+  for i, cont := range lb.Services { 
     containerID := cont.ID
     stats, err := lb.DockerClient.ContainerStats(ctx, containerID, false)
     if err != nil {
@@ -146,7 +115,14 @@ func (lb *LoadBalancer) MonitorStats() error {
     memoryLimit := float64(cont.MemoryLimit) / (1024 * 1024) // Convert to MB
     memoryPercent := (memoryUsage / memoryLimit) * 100.0
     if memoryPercent > 80.00{
-      fmt.Print("\nMemory Limit close to max\n")
+      fmt.Println("Memory Limit close to max")
+      lb.ScaleUp()
+    }
+    if memoryPercent < 40.0{
+      if len(lb.Services) > 1 {
+        fmt.Println("Low usage, scaling down")
+        lb.ScaleDown(i)
+      }
     }
 
     // fmt.Printf("Container ID: %s\n", containerID)
@@ -156,30 +132,4 @@ func (lb *LoadBalancer) MonitorStats() error {
 	return nil
 }
 
-func ForwardRequests(targetURL string, w http.ResponseWriter, r *http.Request) (*http.Response, error) {
-  var body io.Reader
-  if r.Body != nil {
-    body = r.Body
-  } else {
-    body = http.NoBody
-  }
-
-  req, err := http.NewRequest(r.Method, targetURL, body)
-  if err != nil {
-    http.Error(w, "Failed to create request", 500)
-    return nil, err
-  }
-  for key, values := range r.Header {
-    for _, value := range values {
-      req.Header.Add(key, value)
-    }
-  }
-
-  client := &http.Client{}
-  resp, err := client.Do(req)
-  if err != nil {
-    return nil, errors.New("Container not responding")
-  }
-  return resp, nil
-}
 

@@ -30,23 +30,6 @@ func main () {
       }
     }()
 
-  go func() {
-    ticker := time.NewTicker(1 * time.Minute)
-    defer ticker.Stop()
-    for {
-      select {
-        case <- ticker.C:
-          newID := lb.Services[0].ScaleUpService(lb.DockerClient)
-          backend, err := CreateBackend(lb.DockerClient, newID)
-          if err != nil {
-            fmt.Println(err.Error())
-          }
-          lb.Services = append(lb.Services, backend)
-        }
-      }
-    }()
-  lb.Services[0].ScaleDownService(lb.DockerClient)
-
   http.HandleFunc("/", lb.handleRequest)
   http.ListenAndServe(":8080", nil)
 }
