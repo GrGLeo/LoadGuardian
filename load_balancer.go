@@ -57,6 +57,7 @@ func NewLoadBalancer() (*LoadBalancer, error) {
 }
 
 func (lb *LoadBalancer) RemoveDeadServices() {
+  fmt.Println("Hey there")
   var newServices []BackendService
   for _, cont := range lb.Services {
     if cont.Healthy {
@@ -112,6 +113,7 @@ func (lb *LoadBalancer) ScaleDown(index int) {
 }
 
 func (lb *LoadBalancer) Monitor() error {
+  fmt.Println(lb.Services)
   lb.MonitorHealth()
   err := lb.MonitorStats()
   return err

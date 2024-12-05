@@ -31,6 +31,7 @@ func (back *BackendService) CheckStatus (cli *client.Client) {
 
 func (back *BackendService) RestartService (cli *client.Client) {
   timeout := 0
+  fmt.Println("hello")
   stopOptions := container.StopOptions{Timeout: &timeout}
   err := cli.ContainerRestart(context.Background(), back.ID, stopOptions)
   if err != nil {
@@ -71,13 +72,17 @@ func (back *BackendService) ScaleDownService (cli *client.Client) string {
     fmt.Println("Failed to stop container")
   }
   back.RemoveContainer(cli, false)
-  back.Healthy = false
   fmt.Println("Scaled down.")
   return back.ID
 }
 
 func (back *BackendService) RemoveContainer (cli *client.Client, force bool) {
-  removeOptions := container.RemoveOptions{false, false, force}
+  removeOptions := container.RemoveOptions{
+    RemoveVolumes: false,
+    RemoveLinks: false,
+    Force: force,
+  }
+
   err := cli.ContainerRemove(context.Background(), back.ID, removeOptions)
   if err != nil {
     fmt.Println("Failed to remove container: ", err.Error())

@@ -15,6 +15,10 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
 
   for len(lb.Services) > 0 {
     backend = lb.getBackend()
+    // TODO: need to rethink handling dead cont
+    if !backend.Healthy {
+      continue
+    }
     targetURL := backend.Endpoint + r.URL.Path
     resp, err = ForwardRequests(targetURL, w, r)
     // Forwarded to the service
