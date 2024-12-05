@@ -20,8 +20,9 @@ services:
       - "8081-8089:8081"
     labels:
       - "LoadBalanced=true"
+      - "LoadBalancer.min.replicas=1"
+      - "LoadBalancer.max.replicas=3"
     deploy:
-      replicas: 2
       resources:
         limits:
           memory: 128M

@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 )
 
 
-func CreateBackendServices(cli *client.Client) ([]BackendService, string, string) {
+func CreateBackendServices(cli *client.Client) ([]BackendService, string, string, [2]int) {
   var Services []BackendService
   var serviceName string
+  var Replicas [2]int
   algo := "random"
   // TODO: add filter on both labels to avoid looping all container
   // List all container
@@ -30,6 +32,18 @@ func CreateBackendServices(cli *client.Client) ([]BackendService, string, string
     // Extact info on service that is balance
     if container.Labels["LoadBalanced"] == "true" {
       serviceName = container.Labels["com.docker.compose.service"]
+      replicas, err := strconv.Atoi(container.Labels["LoadBalancer.min.replicas"])
+      if err != nil {
+        fmt.Println("Error getting min replicas, setting min to 1")
+        Replicas[0] = 1
+      }
+      Replicas[0] = replicas
+      replicas, err = strconv.Atoi(container.Labels["LoadBalancer.max.replicas"])
+      if err != nil {
+        fmt.Println("Error getting max replicas, setting min to 2")
+        Replicas[1] = 2
+      }
+      Replicas[1] = replicas
 
       containerInfo, err := cli.ContainerInspect(context.Background(), container.ID)
       if err != nil {
@@ -56,7 +70,7 @@ func CreateBackendServices(cli *client.Client) ([]BackendService, string, string
       }
     }
   }
-  return Services, serviceName, algo
+  return Services, serviceName, algo, Replicas
 }
 
 func CreateBackend(cli *client.Client, containerID string) (BackendService, error) {

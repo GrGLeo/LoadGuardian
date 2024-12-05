@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,15 +12,21 @@ import (
 	"github.com/docker/docker/client"
 )
 
+type Replicas struct {
+  MinReplicas int
+  MaxReplicas int
+  LastScaled time.Time
+  CooldownPeriod time.Duration
+}
+
 type LoadBalancer struct {
   DockerClient *client.Client
   ServiceName string
   Algorithm string
   Services []BackendService
   index uint8
-  LastScaled time.Time
-  CooldownPeriod time.Duration
   mu sync.Mutex
+  Replicas Replicas
 }
 
 func NewLoadBalancer() (*LoadBalancer, error) {
@@ -28,17 +35,24 @@ func NewLoadBalancer() (*LoadBalancer, error) {
       return nil, err
   }
 
-  BackendServices, ServiceName, algo := CreateBackendServices(cli)
+  BackendServices, ServiceName, algo, replicasInfo := CreateBackendServices(cli)
   fmt.Println("Load Balancing started: ", ServiceName, " ", "Algorithm used: ", algo)
+
+  replicas := Replicas{
+    MinReplicas: replicasInfo[0],
+    MaxReplicas: replicasInfo[1],
+    LastScaled: time.Now(),
+    CooldownPeriod: 3 * time.Minute,
+  }
+
   return &LoadBalancer{
     ServiceName: ServiceName,
     Algorithm: algo,
     Services: BackendServices,
     index: 0,
     DockerClient: cli,
-    LastScaled: time.Now(),
-    CooldownPeriod: 3 * time.Minute,
     mu: sync.Mutex{},
+    Replicas: replicas,
   }, nil
 }
 
@@ -54,21 +68,38 @@ func (lb *LoadBalancer) RemoveDeadServices() {
   lb.mu.Unlock()
 }
 
-func (lb *LoadBalancer) ScaleUp() {
-  newID := lb.Services[0].ScaleUpService(lb.DockerClient)
-  backend, err := CreateBackend(lb.DockerClient, newID)
-  if err != nil {
-    fmt.Println(err.Error())
-  }
+func (lb *LoadBalancer) ScaleUp() error {
   lb.mu.Lock()
-  lb.Services = append(lb.Services, backend)
-  lb.mu.Unlock()
-  lb.LastScaled = time.Now()
+  defer lb.mu.Unlock()
+   
+  canScale := time.Since(lb.Replicas.LastScaled) > lb.Replicas.CooldownPeriod
+  maxReach := len(lb.Services) >= lb.Replicas.MaxReplicas
+  // Check if we can scale
+  fmt.Println(len(lb.Services), lb.Replicas.MaxReplicas)
+  if canScale && !maxReach {
+    newID := lb.Services[0].ScaleUpService(lb.DockerClient, lb.ServiceName)
+    backend, err := CreateBackend(lb.DockerClient, newID)
+    if err != nil {
+      return err
+    }
+    lb.Services = append(lb.Services, backend)
+    lb.Replicas.LastScaled = time.Now()
+  } else {
+    // We do nothing is max replicas is reach to avoid conflict with port
+    // Or if cooldown period not yet passed
+    reason := "Cooldown period not reach."
+    if maxReach {
+      reason = "Max replica reached."
+    }
+    return errors.New(reason)
+  }
+  return nil
 }
 
 func (lb *LoadBalancer) ScaleDown(index int) {
   // Avoid scaling down newly created container
-  if time.Since(lb.LastScaled) > lb.CooldownPeriod {
+  // No scaling down when min replicas reach
+  if time.Since(lb.Replicas.LastScaled) > lb.Replicas.CooldownPeriod && len(lb.Services) > lb.Replicas.MinReplicas {
     lb.Services[index].ScaleDownService(lb.DockerClient)
     lb.mu.Lock()
     if len(lb.Services) == 1 {
@@ -81,8 +112,8 @@ func (lb *LoadBalancer) ScaleDown(index int) {
 }
 
 func (lb *LoadBalancer) Monitor() error {
-  err := lb.MonitorStats()
   lb.MonitorHealth()
+  err := lb.MonitorStats()
   return err
 }
 
@@ -120,7 +151,10 @@ func (lb *LoadBalancer) MonitorStats() error {
     memoryLimit := float64(cont.MemoryLimit) / (1024 * 1024) // Convert to MB
     memoryPercent := (memoryUsage / memoryLimit) * 100.0
     if memoryPercent > 80.00{
-      lb.ScaleUp()
+      err := lb.ScaleUp()
+      if err != nil {
+        fmt.Println(err.Error())
+      }
     }
     if memoryPercent < 20.0{
       if len(lb.Services) > 1 {
@@ -134,5 +168,3 @@ func (lb *LoadBalancer) MonitorStats() error {
 
 	return nil
 }
-
-

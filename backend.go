@@ -39,27 +39,27 @@ func (back *BackendService) RestartService (cli *client.Client) {
   fmt.Println("Container started: ", back.ID)
 }
 
-func (back *BackendService) ScaleUpService (cli *client.Client) string {
+func (back *BackendService) ScaleUpService (cli *client.Client, name string) string {
   cont, err := cli.ContainerInspect(context.Background(), back.ID)
   if err != nil {
     fmt.Println("Failed to inspect container")
   }
 
+  contName := fmt.Sprintf("%s-%s", name, CreateName(5))
   resp, err := cli.ContainerCreate(
     context.Background(),
     cont.Config,
     cont.HostConfig,
     nil,
     nil,
-    CreateName(5),
+    contName,
   )
   if err != nil {
     fmt.Println("Error while scaling container: ", err.Error())
   }
   newID := resp.ID
-  fmt.Println("Scaled up: ", newID)
   cli.ContainerStart(context.Background(), newID, container.StartOptions{})
-  fmt.Println("Starting container: ", newID)
+  fmt.Println("Starting container: ", contName)
   return newID
 }
 
