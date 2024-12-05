@@ -12,11 +12,11 @@ import (
 )
 
 type LoadBalancer struct {
+  DockerClient *client.Client
   ServiceName string
   Algorithm string
   Services []BackendService
   index uint8
-  DockerClient *client.Client
   LastScaled time.Time
   CooldownPeriod time.Duration
   mu sync.Mutex
@@ -49,8 +49,9 @@ func (lb *LoadBalancer) RemoveDeadServices() {
       newServices = append(newServices, cont)
     }
   }
+  lb.mu.Lock()
   lb.Services = newServices
-  fmt.Println(newServices)
+  lb.mu.Unlock()
 }
 
 func (lb *LoadBalancer) ScaleUp() {
@@ -59,7 +60,9 @@ func (lb *LoadBalancer) ScaleUp() {
   if err != nil {
     fmt.Println(err.Error())
   }
+  lb.mu.Lock()
   lb.Services = append(lb.Services, backend)
+  lb.mu.Unlock()
   lb.LastScaled = time.Now()
 }
 
@@ -67,11 +70,13 @@ func (lb *LoadBalancer) ScaleDown(index int) {
   // Avoid scaling down newly created container
   if time.Since(lb.LastScaled) > lb.CooldownPeriod {
     lb.Services[index].ScaleDownService(lb.DockerClient)
+    lb.mu.Lock()
     if len(lb.Services) == 1 {
       lb.Services = []BackendService{lb.Services[0]}
     } else {
       lb.Services = append(lb.Services[:index], lb.Services[index+1:]...)
     }
+    lb.mu.Unlock()
   }
 }
 
@@ -115,12 +120,10 @@ func (lb *LoadBalancer) MonitorStats() error {
     memoryLimit := float64(cont.MemoryLimit) / (1024 * 1024) // Convert to MB
     memoryPercent := (memoryUsage / memoryLimit) * 100.0
     if memoryPercent > 80.00{
-      fmt.Println("Memory Limit close to max")
       lb.ScaleUp()
     }
-    if memoryPercent < 40.0{
+    if memoryPercent < 20.0{
       if len(lb.Services) > 1 {
-        fmt.Println("Low usage, scaling down")
         lb.ScaleDown(i)
       }
     }
