@@ -38,6 +38,7 @@ func (back *BackendService) RestartService (cli *client.Client) {
     fmt.Println("Failed to restart container.")
   }
   fmt.Println("Container started: ", back.ID)
+  back.Healthy = true
 }
 
 func (back *BackendService) ScaleUpService (cli *client.Client, name string) string {

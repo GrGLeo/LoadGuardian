@@ -29,7 +29,6 @@ func (lb *LoadBalancer) handleRequest(w http.ResponseWriter, r *http.Request) {
     if err.Error() == "Container not responding" {
       fmt.Println("Checking container status")
       backend.CheckStatus(lb.DockerClient)
-      lb.RemoveDeadServices()
     }
   }
 
