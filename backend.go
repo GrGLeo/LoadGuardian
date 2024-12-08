@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -29,22 +30,23 @@ func (back *BackendService) CheckStatus (cli *client.Client) {
   }
 }
 
-func (back *BackendService) RestartService (cli *client.Client) {
+func (back *BackendService) RestartService (cli *client.Client) error {
   timeout := 0
-  fmt.Println("hello")
   stopOptions := container.StopOptions{Timeout: &timeout}
   err := cli.ContainerRestart(context.Background(), back.ID, stopOptions)
   if err != nil {
-    fmt.Println("Failed to restart container.")
+    return errors.New(fmt.Sprintf("Failed to restart container: %q", err.Error()))
   }
-  fmt.Println("Container started: ", back.ID)
+  fmt.Println("Container restarted: ", back.ID)
   back.Healthy = true
+  return nil
 }
 
-func (back *BackendService) ScaleUpService (cli *client.Client, name string) string {
+func (back *BackendService) ScaleUpService (cli *client.Client, name string) (string, error) {
   cont, err := cli.ContainerInspect(context.Background(), back.ID)
   if err != nil {
-    fmt.Println("Failed to inspect container")
+    newErr := fmt.Sprintf("Failed to inspect container: %q", err.Error())
+    return "", errors.New(newErr)
   }
 
   contName := fmt.Sprintf("%s-%s", name, CreateName(5))
@@ -57,27 +59,32 @@ func (back *BackendService) ScaleUpService (cli *client.Client, name string) str
     contName,
   )
   if err != nil {
-    fmt.Println("Error while scaling container: ", err.Error())
+    newErr := fmt.Sprintf("Error while scaling container: %q", err.Error())
+    return "", errors.New(newErr)
   }
   newID := resp.ID
   cli.ContainerStart(context.Background(), newID, container.StartOptions{})
   fmt.Println("Starting container: ", contName)
-  return newID
+  return newID, nil
 }
 
-func (back *BackendService) ScaleDownService (cli *client.Client) string {
+func (back *BackendService) ScaleDownService (cli *client.Client) error {
   timeout := 30
   stopOptions := container.StopOptions{Timeout: &timeout}
   err := cli.ContainerStop(context.Background(), back.ID, stopOptions)
   if err != nil {
-    fmt.Println("Failed to stop container")
+    newErr := fmt.Sprintf("Failed to stop container: %q", err.Error())
+    return errors.New(newErr)
   }
-  back.RemoveContainer(cli, false)
+  err = back.RemoveContainer(cli, false)
+  if err != nil {
+    return err
+  }
   fmt.Println("Scaled down.")
-  return back.ID
+  return  nil
 }
 
-func (back *BackendService) RemoveContainer (cli *client.Client, force bool) {
+func (back *BackendService) RemoveContainer (cli *client.Client, force bool) error {
   removeOptions := container.RemoveOptions{
     RemoveVolumes: false,
     RemoveLinks: false,
@@ -86,8 +93,10 @@ func (back *BackendService) RemoveContainer (cli *client.Client, force bool) {
 
   err := cli.ContainerRemove(context.Background(), back.ID, removeOptions)
   if err != nil {
-    fmt.Println("Failed to remove container: ", err.Error())
+    newErr := fmt.Sprintf("Failed to remove container: %q", err.Error())
+    return errors.New(newErr)
   }
+  return nil
 }
 
 func CreateName(length int) string {

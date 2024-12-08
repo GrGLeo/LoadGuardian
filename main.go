@@ -16,8 +16,6 @@ func main () {
   if err != nil {
     panic(err)
   }
-  // Routine to check changes on docker-compose
-  go MonitorFile(lb)
   // Routine to periodically update Stats
   go func() {
     ticker := time.NewTicker(5 * time.Second)

@@ -14,6 +14,13 @@ async def health_check():
     large_data.append(large_string)
     return JSONResponse(content={"mem": 256, "cpu": 20}, status_code=200)
 
+
+@app.get("/restart")
+async def restart():
+    global large_data
+    large_data = []
+    return JSONResponse(content={"status": "restarted"}, status_code=200)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8081)

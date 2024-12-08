@@ -10,8 +10,8 @@ import (
 	"github.com/docker/docker/client"
 )
 
-
-func CreateBackendServices(cli *client.Client) ([]BackendService, string, string, [2]int) {
+// Return multiple value or a Struct return?
+func CreateBackendServices(cli *client.Client) ([]BackendService, string, string, [2]int, error) {
   var Services []BackendService
   var serviceName string
   var Replicas [2]int
@@ -20,68 +20,54 @@ func CreateBackendServices(cli *client.Client) ([]BackendService, string, string
   // List all container
   containers, err := cli.ContainerList(context.Background(), container.ListOptions{All: true})
   if err != nil {
-      panic(err)
+    panic(err)
   }
 
   // Loop through the containers & only continue on labelled one
   for _, container := range containers {
     // Get load balancing algorithm
-    if v, ok := container.Labels["BalanceAlgorithm"]; ok {
+    if v, ok := container.Labels["lg.BalanceAlgorithm"]; ok {
       algo = v
     }
     // Extact info on service that is balance
-    if container.Labels["LoadBalanced"] == "true" {
+    if container.Labels["lg.monitor"] == "true" {
       serviceName = container.Labels["com.docker.compose.service"]
-      replicas, err := strconv.Atoi(container.Labels["LoadBalancer.min.replicas"])
+      replicas, err := strconv.Atoi(container.Labels["lg.min.replicas"])
       if err != nil {
         fmt.Println("Error getting min replicas, setting min to 1")
         Replicas[0] = 1
       }
       Replicas[0] = replicas
-      replicas, err = strconv.Atoi(container.Labels["LoadBalancer.max.replicas"])
+      replicas, err = strconv.Atoi(container.Labels["lg.max.replicas"])
       if err != nil {
         fmt.Println("Error getting max replicas, setting min to 2")
         Replicas[1] = 2
       }
       Replicas[1] = replicas
 
-      containerInfo, err := cli.ContainerInspect(context.Background(), container.ID)
+      backend, err := CreateBackend(cli, container.ID)
       if err != nil {
-        fmt.Printf("Error inspecting container: %v", err)
+        fmt.Println(err)
+        continue
       }
-      // extract memory limit
-      Memory := containerInfo.HostConfig.Memory
-
-      // TODO: there should be a better way to do this.
-      if len(containerInfo.NetworkSettings.Ports) > 0 {
-        for port := range containerInfo.NetworkSettings.Ports {
-          backend := BackendService{
-            ID: container.ID,
-            Endpoint: "http:/"+container.Names[0]+":"+port.Port(),
-            Connection: 0,
-            MemoryLimit: Memory,
-            // bold assumption
-            Healthy: true,
-          }
-          Services = append(Services, backend)
-        }
-      } else {
-        fmt.Println("No ports exposed or mapped.")
-      }
+      Services = append(Services, backend)
     }
   }
-  return Services, serviceName, algo, Replicas
+  if len(Services) == 0 {
+    return []BackendService{}, "", "", [2]int{0,0}, errors.New("Failed to create Services")
+  }
+  return Services, serviceName, algo, Replicas, nil
 }
 
 func CreateBackend(cli *client.Client, containerID string) (BackendService, error) {
   containerInfo, err := cli.ContainerInspect(context.Background(), containerID)
   if err != nil {
-    fmt.Printf("Error inspecting container: %v", err)
+    return BackendService{}, errors.New(fmt.Sprintf("Error inspecting container: %v", err))
   }
   // extract memory limit
   Memory := containerInfo.HostConfig.Memory
 
-  // TODO: there should be a better way to do this.
+  // TODO: there sould be a better way to do this
   if len(containerInfo.NetworkSettings.Ports) > 0 {
     for port := range containerInfo.NetworkSettings.Ports {
       backend := BackendService{
@@ -89,13 +75,12 @@ func CreateBackend(cli *client.Client, containerID string) (BackendService, erro
         Endpoint: "http:/"+containerInfo.Name+":"+port.Port(),
         Connection: 0,
         MemoryLimit: Memory,
-        // bold assumption
         Healthy: true,
       }
       return backend, nil
     }
   } else {
-    fmt.Println("No ports exposed or mapped.")
+    return BackendService{}, errors.New("No ports exposed or mapped.")
   }
   return BackendService{}, errors.New("Error while getting service info")
 }

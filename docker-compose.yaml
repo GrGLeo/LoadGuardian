@@ -7,9 +7,10 @@ services:
     ports:
       - "8080:8080"
     labels:
-      - "BalanceAlgorithm=roundrobin"
+      - "lg.BalanceAlgorithm=roundrobin"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-compose.yaml:/app/docker-compose.yaml
 
   backend:
     build:
@@ -19,13 +20,13 @@ services:
     ports:
       - "8081-8089:8081"
     labels:
-      - "LoadBalanced=true"
-      - "LoadBalancer.min.replicas=1"
-      - "LoadBalancer.max.replicas=3"
+      - "lg.monitor=true"
+      - "lg.min.replicas=1"
+      - "lg.max.replicas=3"
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 256M
 
 networks:
   app-network:
