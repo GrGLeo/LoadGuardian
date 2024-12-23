@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -14,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"gopkg.in/yaml.v3"
 )
 
@@ -83,45 +85,65 @@ func (c *Config) CreateNetworks(client *client.Client) error {
   return nil
 }
 
-
 func (c *Config) PullServices() error {
   cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
   if err != nil {
       return err
   }
   for name, service := range c.Service {
-    fmt.Println(fmt.Sprintf("Pulling Service %s", name))
-    // s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-    // s.Suffix = fmt.Sprintf("Pulling Service %s", name)
-    // s.Start()
+    s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+    s.Suffix = fmt.Sprintf("Pulling Service %s", name)
+    s.Start()
     reader, err := cli.ImagePull(context.Background(), service.Image, image.PullOptions{})
-    ReadProgress(reader)
     if err != nil {
+      s.Stop()
       return err
     }
-    
-    // s.Stop()
+    ReadProgress(reader, func(status string){
+      s.Suffix = fmt.Sprintf(" Pulling Service %s - %s", name, status)
+    })
+    s.Stop()
   }
   return nil
 }
 
-func (s *Service) CreateService() error {
-  cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-  if err != nil {
-      return err
+func (s *Service) CreateService(cli *client.Client) error {
+  var cport string
+  var hport string
+  if len(s.Port) != 0 {
+    ports := strings.Split(s.Port[0], ":")
+    cport = ports[0]
+    hport = ports[1]
   }
   config := &container.Config{
+    Image: s.Image,
+    ExposedPorts: nat.PortSet{
+      nat.Port(cport+"/tcp"): struct{}{},
+    },
   }
   hostConfig := &container.HostConfig{
+    PortBindings: nat.PortMap{
+      nat.Port(hport+"/tcp"): []nat.PortBinding{
+        {
+          HostIP: "0.0.0.0",
+          HostPort: hport,
+        },
+      },
+    },
+    NetworkMode: container.NetworkMode(s.Network[0]),
   }
 
-  cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "hello") 
+  _, err := cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "hello") 
+  if err != nil {
+    return err
+  }
 
   return nil
 }
 
 
-func ReadProgress(r io.ReadCloser) error {
+func ReadProgress(r io.ReadCloser, updateStatus func(string)) error {
+  defer r.Close()
   decoder := json.NewDecoder(r)
   for {
     var msg map[string]interface{}
@@ -133,10 +155,9 @@ func ReadProgress(r io.ReadCloser) error {
     if id, ok := msg["id"]; ok {
       fmt.Printf("Image Id: %s\n", id)
     }
-    if status, ok := msg["status"]; ok {
-      fmt.Printf("Status: %s\n", status)
+    if status, ok := msg["status"].(string); ok {
+      updateStatus(status)
     }
-    fmt.Println("---")
   }
   return nil 
 }

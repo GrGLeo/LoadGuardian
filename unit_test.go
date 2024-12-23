@@ -101,3 +101,14 @@ func TestPullImage(t *testing.T) {
     t.Errorf("Expected image pulling to work, got %s", err.Error())
   }
 }
+
+func TestCreateContainer(t *testing.T) {
+  config, _ := ParseYAML("service.yml")
+  cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+  s := config.Service["Backend"]
+  err := s.CreateService(cli)
+  if err != nil {
+    t.Errorf("Expected container creation to work, got %s", err.Error())
+  }
+}
+
