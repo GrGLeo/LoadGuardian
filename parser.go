@@ -7,9 +7,12 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"gopkg.in/yaml.v3"
 )
@@ -17,12 +20,41 @@ import (
 type Service struct {
   Image string `yaml:"image,omitempty"`
   Network []string `yaml:"network,omitempty"`
+  Volume []string  `yaml:"volume,omitempty"`
   Port []string `yaml:"ports,omitempty"`
 }
 
+type Network struct {
+  Driver string `yaml:"driver,omitempty"`
+}
+
+
 type Config struct {
   Service map[string]Service `yaml:"service"`
+  Network map[string]Network `yaml:"networks,omitempty"`
 }
+
+type LoadGuardian struct {
+  Client *client.Client
+  Config Config
+}
+
+func NewLoadGuardian(file string) (LoadGuardian, error) {
+  cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+  if err != nil {
+    return LoadGuardian{}, err
+  }
+  c, err := ParseYAML(file)
+  if err != nil {
+    return LoadGuardian{}, err
+  }
+
+  return LoadGuardian{
+    Client: cli,
+    Config: c,
+  }, nil
+}
+    
 
 func ParseYAML(file string) (Config, error) {
   f, err := os.ReadFile(file)
@@ -34,7 +66,25 @@ func ParseYAML(file string) (Config, error) {
   return c, nil
 }
 
-func PullServices (c *Config) error {
+func (c *Config) CreateNetworks(client *client.Client) error {
+  for name, value := range c.Network {
+    opt := network.CreateOptions{
+      Driver: value.Driver,
+    }
+    s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+    s.Suffix = fmt.Sprintf("Pulling Service %s", name)
+    s.Start()
+    _, err := client.NetworkCreate(context.Background(), name, opt)
+    s.Stop()
+    if err != nil {
+      return err
+    }
+  }
+  return nil
+}
+
+
+func (c *Config) PullServices() error {
   cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
   if err != nil {
       return err
@@ -55,7 +105,7 @@ func PullServices (c *Config) error {
   return nil
 }
 
-func CreateService(c *Config) error {
+func (s *Service) CreateService() error {
   cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
   if err != nil {
       return err
@@ -67,7 +117,6 @@ func CreateService(c *Config) error {
 
   cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "hello") 
 
-  
   return nil
 }
 

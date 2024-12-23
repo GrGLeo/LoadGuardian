@@ -2,6 +2,8 @@ package main
 
 import (
 	"testing"
+
+	"github.com/docker/docker/client"
 )
 
 func TestRoundRobin(t *testing.T) {
@@ -61,6 +63,12 @@ func TestYamlParsing(t *testing.T) {
 	if len(config.Service) != 2 {
 		t.Errorf("Expected 2 services, got %d", len(config.Service))
 	}
+  if len(config.Network) != 1 {
+		t.Errorf("Expected 1 services, got %d", len(config.Network))
+	}
+  if config.Network["app-network"].Driver != "bridge" {
+		t.Errorf("Expected Network bridge to be 'bridge', got '%s'", config.Network["app-network"].Driver)
+	}
 	if config.Service["Backend"].Image != "hello-world" {
 		t.Errorf("Expected Backend image to be 'hello-world', got '%s'", config.Service["Backend"].Image)
 	}
@@ -75,9 +83,20 @@ func TestYamlParsing(t *testing.T) {
   }
 }
 
+func TestCreateNetwork(t *testing.T) {
+  config, _ := ParseYAML("service.yml")
+  cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+  err := config.CreateNetworks(cli)
+  if err != nil {
+    t.Errorf("Expected network creation to work, got %s", err.Error())
+  }
+}
+  
+    
+
 func TestPullImage(t *testing.T) {
   config, _ := ParseYAML("service.yml")
-  err := PullServices(&config)
+  err := config.PullServices()
   if err != nil {
     t.Errorf("Expected image pulling to work, got %s", err.Error())
   }

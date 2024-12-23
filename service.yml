@@ -9,3 +9,6 @@ service:
   Frontend:
     image: hello-world
 
+networks:
+  app-network:
+    driver: bridge
