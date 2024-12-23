@@ -1,0 +1,11 @@
+service:
+  Backend:
+    image: hello-world
+    network: 
+      - app-network
+    ports: 
+      - "8080:8080"
+
+  Frontend:
+    image: hello-world
+

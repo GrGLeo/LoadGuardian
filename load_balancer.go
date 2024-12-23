@@ -35,7 +35,7 @@ func NewLoadBalancer() (*LoadBalancer, error) {
       return nil, err
   }
 
-  BackendServices, ServiceName, algo, replicasInfo := CreateBackendServices(cli)
+  BackendServices, ServiceName, algo, replicasInfo, err := CreateBackendServices(cli)
   fmt.Println("Load Balancing started: ", ServiceName, " ", "Algorithm used: ", algo)
 
   replicas := Replicas{
@@ -78,7 +78,7 @@ func (lb *LoadBalancer) ScaleUp() error {
   // Check if we can scale
   fmt.Println(len(lb.Services), lb.Replicas.MaxReplicas)
   if canScale && !maxReach {
-    newID := lb.Services[0].ScaleUpService(lb.DockerClient, lb.ServiceName)
+    newID, err := lb.Services[0].ScaleUpService(lb.DockerClient, lb.ServiceName)
     backend, err := CreateBackend(lb.DockerClient, newID)
     if err != nil {
       return err
