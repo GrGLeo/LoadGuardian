@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"gopkg.in/yaml.v3"
@@ -54,6 +55,23 @@ func PullServices (c *Config) error {
   return nil
 }
 
+func CreateService(c *Config) error {
+  cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+  if err != nil {
+      return err
+  }
+  config := &container.Config{
+  }
+  hostConfig := &container.HostConfig{
+  }
+
+  cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "hello") 
+
+  
+  return nil
+}
+
+
 func ReadProgress(r io.ReadCloser) error {
   decoder := json.NewDecoder(r)
   for {
@@ -63,7 +81,13 @@ func ReadProgress(r io.ReadCloser) error {
     } else if err != nil {
       log.Fatal(err)
     }
-    fmt.Println(msg)
+    if id, ok := msg["id"]; ok {
+      fmt.Printf("Image Id: %s\n", id)
+    }
+    if status, ok := msg["status"]; ok {
+      fmt.Printf("Status: %s\n", status)
+    }
+    fmt.Println("---")
   }
   return nil 
 }
