@@ -8,15 +8,18 @@ import (
 func main() {
   command := os.Args[1]
   switch command {
-    case "up":
-      if len(os.Args) < 3 {
-        fmt.Println("Usage up ./LoadGuardian up <file>")
-        os.Exit(1)
-      }
-      file := os.Args[2]
-      Up(file)
-
-    default:
-      fmt.Println("Unknown command")
+  case "up":
+    if len(os.Args) < 3 {
+      fmt.Println("Usage up ./LoadGuardian up <file>")
+      os.Exit(1)
     }
+    file := os.Args[2]
+    Up(file)
+
+  case "down":
+    fmt.Println("Not implemented yet")
+
+  default:
+    fmt.Println("Unknown command")
   }
+}

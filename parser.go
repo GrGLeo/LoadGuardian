@@ -29,12 +29,12 @@ type Service struct {
   Network []string `yaml:"network,omitempty"`
   Volume []string  `yaml:"volume,omitempty"`
   Port []string `yaml:"ports,omitempty"`
+  Dependencies []string `yaml:"dependencies,omitempty"`
 }
 
 type Network struct {
   Driver string `yaml:"driver,omitempty"`
 }
-
 
 type Config struct {
   Service map[string]Service `yaml:"service"`
@@ -82,7 +82,7 @@ func ParseYAML(file string) (Config, error) {
   }
   c := Config{}
   yaml.Unmarshal(f, &c)
-  // verify all service have an associated image
+  // verify all services have an associated image
   for name, value := range c.Service {
     if value.Image == "" {
       log.Fatalf("Service %s unknown Image name", name)
@@ -91,16 +91,32 @@ func ParseYAML(file string) (Config, error) {
   return c, nil
 }
 
-func (c *Config) CreateNetworks(client *client.Client) error {
+func (c *Config) CreateNetworks(cli *client.Client) error {
+  networks, err := cli.NetworkList(context.Background(), network.ListOptions{})
+  if err != nil {
+    fmt.Println("Failed to retrieve networks list: ",err.Error())
+    return err
+  }
   for name, value := range c.Network {
-    opt := network.CreateOptions{
-      Driver: value.Driver,
+    networkExist := false
+    for _,net := range networks {
+      if net.Name == name {
+        networkExist = true
+        break
+      }
     }
-    resp, err := client.NetworkCreate(context.Background(), name, opt)
-    NetworkID := resp.ID
-    fmt.Printf("%s Network %s created\n", greenCheck, NetworkID)
-    if err != nil {
-      return err
+    if networkExist {
+      fmt.Printf("%s Network %s already exist\n", greenCheck, name)
+    } else {
+      opt := network.CreateOptions{
+        Driver: value.Driver,
+      }
+      _, err := cli.NetworkCreate(context.Background(), name, opt)
+      fmt.Printf("%s Network %s created\n", greenCheck, name)
+      if err != nil {
+        fmt.Println("Failed to create network ",name, err.Error())
+        return err
+      }
     }
   }
   return nil
