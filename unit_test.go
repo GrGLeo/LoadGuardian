@@ -102,13 +102,31 @@ func TestPullImage(t *testing.T) {
   }
 }
 
-func TestCreateContainer(t *testing.T) {
-  config, _ := ParseYAML("service.yml")
-  cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-  s := config.Service["Backend"]
-  err := s.CreateService(cli)
+func TestCreateAndStartContainer(t *testing.T) {
+  config, err := ParseYAML("service.yml")
   if err != nil {
-    t.Errorf("Expected container creation to work, got %s", err.Error())
+    t.Fatalf("Failed to parse YAML: %s", err.Error())
   }
+
+  cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+  if err != nil {
+    t.Fatalf("Failed to create Docker client: %s", err.Error())
+  }
+
+  s := config.Service["Backend"]
+
+  // Test container creation
+  id, err := s.CreateService(cli)
+  if err != nil {
+    t.Fatalf("Expected container creation to succeed, got error: %s", err.Error())
+  }
+  t.Logf("Container created successfully with ID: %s", id)
+
+  // Test container starting
+  err = config.ServiceStart(cli, id)
+  if err != nil {
+    t.Fatalf("Expected container to start successfully, got error: %s", err.Error())
+  }
+  t.Log("Container started successfully")
 }
 

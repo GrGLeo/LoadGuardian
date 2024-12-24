@@ -41,6 +41,11 @@ type LoadGuardian struct {
   Config Config
 }
 
+type LogMessage struct {
+  containerID string
+  Message string
+}
+
 func NewLoadGuardian(file string) (LoadGuardian, error) {
   cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
   if err != nil {
@@ -107,7 +112,7 @@ func (c *Config) PullServices() error {
   return nil
 }
 
-func (s *Service) CreateService(cli *client.Client) error {
+func (s *Service) CreateService(cli *client.Client) (string, error) {
   var cport string
   var hport string
   if len(s.Port) != 0 {
@@ -133,12 +138,24 @@ func (s *Service) CreateService(cli *client.Client) error {
     NetworkMode: container.NetworkMode(s.Network[0]),
   }
 
-  _, err := cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "hello") 
+  resp, err := cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "hello") 
+  if err != nil {
+    return "", err
+  }
+
+  return resp.ID, nil
+}
+
+func (c *Config) ServiceStart(cli *client.Client, id string) error {
+  err := cli.ContainerStart(context.Background(), id, container.StartOptions{})
   if err != nil {
     return err
   }
-
   return nil
+}
+
+func (s *Service) FetchLogs(cli *client.Client, id string, logChannel chan<- LogMessage) error {
+  return  nil
 }
 
 
