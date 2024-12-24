@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +21,8 @@ import (
 	"github.com/docker/go-connections/nat"
 	"gopkg.in/yaml.v3"
 )
+
+const greenCheck = "\033[32m✓\033[0m"
 
 type Service struct {
   Image string `yaml:"image,omitempty"`
@@ -36,13 +41,20 @@ type Config struct {
   Network map[string]Network `yaml:"networks,omitempty"`
 }
 
+type Container struct {
+  ID string
+  Name string
+  Url string
+}
+
 type LoadGuardian struct {
   Client *client.Client
   Config Config
+  RunningContainer map[string][]Container
 }
 
 type LogMessage struct {
-  containerID string
+  containerName string
   Message string
 }
 
@@ -78,11 +90,9 @@ func (c *Config) CreateNetworks(client *client.Client) error {
     opt := network.CreateOptions{
       Driver: value.Driver,
     }
-    s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-    s.Suffix = fmt.Sprintf("Pulling Service %s", name)
-    s.Start()
-    _, err := client.NetworkCreate(context.Background(), name, opt)
-    s.Stop()
+    resp, err := client.NetworkCreate(context.Background(), name, opt)
+    NetworkID := resp.ID
+    fmt.Printf("%s Network %s created\n", greenCheck, NetworkID)
     if err != nil {
       return err
     }
@@ -90,11 +100,7 @@ func (c *Config) CreateNetworks(client *client.Client) error {
   return nil
 }
 
-func (c *Config) PullServices() error {
-  cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-  if err != nil {
-      return err
-  }
+func (c *Config) PullServices(cli *client.Client) error {
   for name, service := range c.Service {
     s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
     s.Suffix = fmt.Sprintf("Pulling Service %s", name)
@@ -112,52 +118,135 @@ func (c *Config) PullServices() error {
   return nil
 }
 
-func (s *Service) CreateService(cli *client.Client) (string, error) {
+func (c *Config) CreateAllService(cli *client.Client) (map[string][]Container, error) {
+  runningCont := make(map[string][]Container)
+  for name, service := range c.Service {
+    container, err := service.Create(cli, 1)
+    if err != nil {
+      return runningCont, err
+    }
+    runningCont[name] = append(runningCont[name], container)
+  }
+  return runningCont, nil
+}
+
+func (s *Service) Create(cli *client.Client, n int) (Container, error) {
   var cport string
   var hport string
+  
   if len(s.Port) != 0 {
     ports := strings.Split(s.Port[0], ":")
     cport = ports[0]
     hport = ports[1]
   }
+
   config := &container.Config{
     Image: s.Image,
-    ExposedPorts: nat.PortSet{
-      nat.Port(cport+"/tcp"): struct{}{},
-    },
   }
-  hostConfig := &container.HostConfig{
-    PortBindings: nat.PortMap{
+  if cport != "" {
+    config.ExposedPorts = nat.PortSet{
+      nat.Port(cport+"/tcp"): struct{}{},
+    }
+  }
+ 
+  hostConfig := &container.HostConfig{}
+  if len(s.Network) > 0 {
+    hostConfig.NetworkMode = container.NetworkMode(s.Network[0])
+  }
+  if hport != "" {
+    hostConfig.PortBindings = nat.PortMap{
       nat.Port(hport+"/tcp"): []nat.PortBinding{
         {
           HostIP: "0.0.0.0",
           HostPort: hport,
         },
       },
-    },
-    NetworkMode: container.NetworkMode(s.Network[0]),
+    }
   }
 
   resp, err := cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "hello") 
+  ContainerID := resp.ID
   if err != nil {
-    return "", err
+    fmt.Println(err.Error())
+    return Container{}, err
   }
-
-  return resp.ID, nil
+  name := s.Image + "-" + strconv.Itoa(n)
+  err = cli.ContainerRename(context.Background(), ContainerID, name)
+  if err != nil {
+    fmt.Println(err.Error())
+    return Container{}, err
+  }
+  return Container{
+    ID: ContainerID,
+    Name: name,
+  }, nil
 }
 
-func (c *Config) ServiceStart(cli *client.Client, id string) error {
-  err := cli.ContainerStart(context.Background(), id, container.StartOptions{})
+func (c *Container) Start(cli *client.Client) error {
+  err := cli.ContainerStart(context.Background(), c.ID, container.StartOptions{})
   if err != nil {
+    fmt.Println(err.Error())
     return err
   }
   return nil
 }
 
-func (s *Service) FetchLogs(cli *client.Client, id string, logChannel chan<- LogMessage) error {
+func (c *Container) FetchLogs(cli *client.Client, logChannel chan<- LogMessage) error {
+  logsOpt := container.LogsOptions{
+    ShowStdout: true,
+    ShowStderr: true,
+    Follow: true,
+  }
+
+  reader, err := cli.ContainerLogs(context.Background(), c.ID, logsOpt)
+  if err != nil {
+    fmt.Println(err.Error())
+    return err 
+  }
+  defer reader.Close()
+  scanner := bufio.NewScanner(reader)
+  buf := make([]byte, 0, 64*1024)
+  scanner.Buffer(buf, 1024*1024)
+  for scanner.Scan() {
+    logChannel <- LogMessage{
+      containerName: c.Name,
+      Message: scanner.Text(),
+    }
+  }
+  if err := scanner.Err(); err != nil {
+    fmt.Println(err.Error())
+    return err
+  }
   return  nil
 }
 
+func (c *Container) StartAndFetchLogs(cli *client.Client, logChannel chan<- LogMessage) error {
+    err := c.Start(cli)
+    greenCheck := "\033[32m✓\033[0m"
+    fmt.Printf("%s %s started.\n", greenCheck, c.Name)
+    if err != nil {
+        return fmt.Errorf("failed to start container: %w", err)
+    }
+    // Fetch the logs in a separate goroutine
+    go func() {
+        err := c.FetchLogs(cli, logChannel)
+        if err != nil {
+            logChannel <- LogMessage{
+                containerName: c.Name,
+                Message: fmt.Sprintf("error fetching logs: %s", err),
+            }
+        }
+    }()
+    return nil
+}
+
+
+func PrintLogs(logChannel <-chan LogMessage) {
+  for logMessage := range logChannel {
+    cleanMessage := sanitizeLogMessage(logMessage.Message)
+    fmt.Printf("[Container: %s] %s\n",logMessage.containerName, cleanMessage)
+  }
+}
 
 func ReadProgress(r io.ReadCloser, updateStatus func(string)) error {
   defer r.Close()
@@ -177,4 +266,17 @@ func ReadProgress(r io.ReadCloser, updateStatus func(string)) error {
     }
   }
   return nil 
+}
+
+func sanitizeLogMessage(message string) string {
+  // Remove non-printable characters using a regex
+  re := regexp.MustCompile(`[[:cntrl:]]`)
+  clean := strings.TrimSpace(re.ReplaceAllString(message, ""))
+  return stripAnsiCodes(clean)
+}
+
+func stripAnsiCodes(input string) string {
+  // Strip ANSI codes from a string
+  var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+  return ansiRegex.ReplaceAllString(input, "")
 }

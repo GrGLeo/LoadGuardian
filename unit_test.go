@@ -92,11 +92,10 @@ func TestCreateNetwork(t *testing.T) {
   }
 }
   
-    
-
 func TestPullImage(t *testing.T) {
   config, _ := ParseYAML("service.yml")
-  err := config.PullServices()
+  cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+  err := config.PullServices(cli)
   if err != nil {
     t.Errorf("Expected image pulling to work, got %s", err.Error())
   }
@@ -116,14 +115,14 @@ func TestCreateAndStartContainer(t *testing.T) {
   s := config.Service["Backend"]
 
   // Test container creation
-  id, err := s.CreateService(cli)
+  container, err := s.Create(cli, 1)
   if err != nil {
     t.Fatalf("Expected container creation to succeed, got error: %s", err.Error())
   }
-  t.Logf("Container created successfully with ID: %s", id)
+  t.Logf("Container created successfully with ID: %s",container.ID)
 
   // Test container starting
-  err = config.ServiceStart(cli, id)
+  err = config.ServiceStart(cli, container.ID)
   if err != nil {
     t.Fatalf("Expected container to start successfully, got error: %s", err.Error())
   }
