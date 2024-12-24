@@ -5,8 +5,8 @@ import (
 	"os"
 )
 
-func Up() {
-  lg, err := NewLoadGuardian("service.yml")
+func Up(file string) {
+  lg, err := NewLoadGuardian(file)
   
   if err != nil {
     fmt.Println(err.Error())

@@ -82,6 +82,12 @@ func ParseYAML(file string) (Config, error) {
   }
   c := Config{}
   yaml.Unmarshal(f, &c)
+  // verify all service have an associated image
+  for name, value := range c.Service {
+    if value.Image == "" {
+      log.Fatalf("Service %s unknown Image name", name)
+    }
+  }
   return c, nil
 }
 
