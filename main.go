@@ -17,7 +17,10 @@ func main() {
     Up(file)
 
   case "down":
-    fmt.Println("Not implemented yet")
+    if err := Down(); err != nil {
+      fmt.Println(err.Error())
+      os.Exit(1)
+    }
 
   default:
     fmt.Println("Unknown command")
