@@ -5,16 +5,22 @@ service:
       - app-network
     ports: 
       - "8080:8080"
+    envs:
+      - $TEN
     dependencies:
       - LogThree
 
   LogFive:
     image: deretz/log_five
+    envs:
+      - $FIVE
 
   LogThree:
     image: deretz/log_three
     dependencies:
       - LogFive
+    envs:
+      - $THREE
 
 networks:
   app-network:

@@ -16,6 +16,7 @@ type Service struct {
   Network []string `yaml:"network,omitempty"`
   Volume []string  `yaml:"volume,omitempty"`
   Port []string `yaml:"ports,omitempty"`
+  Envs []string `yaml:"envs,omitempty"`
   Dependencies []string `yaml:"dependencies,omitempty"`
 }
 
@@ -29,8 +30,10 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
     hport = ports[1]
   }
 
+  fmt.Println(s.Envs)
   config := &container.Config{
     Image: s.Image,
+    Env: s.Envs,
   }
   if cport != "" {
     config.ExposedPorts = nat.PortSet{

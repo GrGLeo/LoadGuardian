@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"gopkg.in/yaml.v3"
 )
 
 const greenCheck = "\033[32m✓\033[0m"
@@ -29,28 +26,6 @@ type Config struct {
   Network map[string]Network `yaml:"networks,omitempty"`
 }
 
-func ParseYAML(file string) (Config, error) {
-  f, err := os.ReadFile(file)
-  if err != nil {
-    return Config{}, err
-  }
-  c := Config{}
-  yaml.Unmarshal(f, &c)
-  // verify all services have an associated image
-  for name, value := range c.Service {
-    if value.Image == "" {
-      log.Fatalf("Service %s unknown Image name", name)
-    }
-  }
-
-  // Order services based on dependiencies
-  c.Service, err = OrderService(c.Service)
-  if err != nil {
-    fmt.Println(err.Error())
-    os.Exit(1)
-  }
-  return c, nil
-}
 
 func (c *Config) CreateNetworks(cli *client.Client) error {
   networks, err := cli.NetworkList(context.Background(), network.ListOptions{})
