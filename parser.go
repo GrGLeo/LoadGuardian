@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -87,6 +88,16 @@ func ParseYAML(file string) (Config, error) {
     if value.Image == "" {
       log.Fatalf("Service %s unknown Image name", name)
     }
+  }
+
+  // Order services based on dependiencies
+  c.Service, err = OrderService(c.Service)
+  for name, _ := range c.Service {
+    fmt.Println(name)
+  }
+  if err != nil {
+    fmt.Println(err.Error())
+    os.Exit(1)
   }
   return c, nil
 }
@@ -294,6 +305,47 @@ func (lg *LoadGuardian) StopAll(timeout int) error {
     }
   }
   return nil
+}
+
+func OrderService(services map[string]Service) (map[string]Service, error) {
+  visited := make(map[string]bool)
+  stack := []string{}
+  temp := make(map[string]bool)
+
+  var visit func(string) error
+  visit = func(service string) error {
+    if temp[service] {
+      return errors.New("cyclic dependency detected on service")
+    }
+    if !visited[service] {
+      temp[service] = true
+      for _, dep := range services[service].Dependencies {
+        if err := visit(dep); err != nil {
+          return err 
+        }
+      }
+      temp[service] = false
+      visited[service] = true
+      stack = append(stack, service)
+    }
+    return nil
+  }
+  for name, _ := range services {
+    if err := visit(name); err != nil {
+      return nil, err
+    }
+  }
+ 
+  // Order services based on stack
+  fmt.Println(stack)
+  for name, _ := range services {
+    fmt.Println(name)
+  }
+  newOrder := make(map[string]Service)
+  for _, name := range stack {
+    newOrder[name] = services[name]
+  }
+  return newOrder, nil
 }
 
 func PrintLogs(logChannel <-chan LogMessage) {

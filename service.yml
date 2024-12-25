@@ -5,12 +5,16 @@ service:
       - app-network
     ports: 
       - "8080:8080"
+    dependencies:
+      - LogThree
 
   LogFive:
     image: deretz/log_five
 
   LogThree:
     image: deretz/log_three
+    dependencies:
+      - LogFive
 
 networks:
   app-network:
