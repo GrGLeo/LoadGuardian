@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
@@ -82,8 +83,44 @@ func (c *Config) CreateNetworks(cli *client.Client) error {
   return nil
 }
 
+func (c *Config) CheckServices(cli *client.Client) (map[string]bool, error) {
+  // Retrieve existing image
+  resp, err := cli.ImageList(context.Background(), image.ListOptions{})
+  if err != nil {
+    return nil, err
+  }
+  // Checking if service already have an existing image
+  pullingServices := make(map[string]bool)
+  for _, serv := range c.Service {
+    pullingServices[serv.Image] = true
+  }
+  for _, image := range resp {
+    imageTag := image.RepoTags
+    if len(imageTag) > 0 {
+      // splitting tag from name
+      name := strings.Split(imageTag[0], ":")[0]
+      if _, ok := pullingServices[name]; ok {
+        pullingServices[name] = false
+      }
+    }
+  }
+  return pullingServices, nil
+}
+
+
 func (c *Config) PullServices(cli *client.Client) error {
+  ImageToPull, err:= c.CheckServices(cli)
+  if err != nil {
+    fmt.Println("Failed to inspect images. Pulling image for all services")
+  }
   for name, service := range c.Service {
+    // Checking if image need to be pulled
+    value, ok := ImageToPull[service.Image]
+    if ok && !value {
+      fmt.Printf("%s Service %s already pulled\n", greenCheck, name)
+      continue
+    }
+    // Pulling Image
     s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
     s.Suffix = fmt.Sprintf("Pulling Service %s", name)
     s.Start()
