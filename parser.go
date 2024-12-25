@@ -192,7 +192,15 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
     fmt.Println(err.Error())
     return Container{}, err
   }
-  name := s.Image + "-" + strconv.Itoa(n)
+  var name string
+  names := strings.Split(s.Image, "/")
+  if len(names) == 1 {
+    name = names[0]
+  } else {
+    idx := len(names) - 1
+    name = names[idx]
+  }
+  name = name + "-" + strconv.Itoa(n)
   err = cli.ContainerRename(context.Background(), ContainerID, name)
   if err != nil {
     fmt.Println(err.Error())
@@ -262,6 +270,31 @@ func (c *Container) StartAndFetchLogs(cli *client.Client, logChannel chan<- LogM
     return nil
 }
 
+func (c *Container) Stop(cli *client.Client, timeout *int) error {
+  opt := container.StopOptions{
+    Timeout: timeout, 
+  }
+  err := cli.ContainerStop(context.Background(), c.ID, opt) 
+  if err != nil {
+    fmt.Printf("Error while stopping container: %s\n", c.Name)
+    return err
+  }
+  return nil
+}
+
+func (lg *LoadGuardian) StopAll(timeout int) error {
+  fmt.Println("Stopping all container")
+  for name, containers := range lg.RunningContainer {
+    fmt.Printf("Stopping services: %s\n", name)
+    for _, c := range containers {
+      err := c.Stop(lg.Client, &timeout)
+      if err != nil {
+        return err
+      }
+    }
+  }
+  return nil
+}
 
 func PrintLogs(logChannel <-chan LogMessage) {
   for logMessage := range logChannel {

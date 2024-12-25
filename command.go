@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func Up(file string) {
@@ -29,5 +31,18 @@ func Up(file string) {
       }(container)
     }
   }
-  select{}
+  // Handling keyboard shutdown
+  signalChannel := make(chan os.Signal, 1)
+  signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+  <-signalChannel
+
+  // Clean up
+  fmt.Println("Stopping all services...")
+  err = lg.StopAll(0)
+  if err != nil {
+    fmt.Println("Error while stopping service")
+    os.Exit(1)
+  }
+  fmt.Println("Servies stopped. Exiting.")
 }
+
