@@ -92,9 +92,6 @@ func ParseYAML(file string) (Config, error) {
 
   // Order services based on dependiencies
   c.Service, err = OrderService(c.Service)
-  for name, _ := range c.Service {
-    fmt.Println(name)
-  }
   if err != nil {
     fmt.Println(err.Error())
     os.Exit(1)
@@ -337,10 +334,6 @@ func OrderService(services map[string]Service) (map[string]Service, error) {
   }
  
   // Order services based on stack
-  fmt.Println(stack)
-  for name, _ := range services {
-    fmt.Println(name)
-  }
   newOrder := make(map[string]Service)
   for _, name := range stack {
     newOrder[name] = services[name]
