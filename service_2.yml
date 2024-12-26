@@ -1,0 +1,18 @@
+service:
+  LogTen:
+    image: deretz/log_ten
+    network: 
+      - app-network
+    ports: 
+      - "8080:8080"
+    envs:
+      - $TEN
+
+  LogFive:
+    image: deretz/log_five
+    envs:
+      - $FIVE
+
+networks:
+  app-network:
+    driver: bridge

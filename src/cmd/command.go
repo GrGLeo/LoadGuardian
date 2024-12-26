@@ -9,9 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
 	"github.com/GrGLeo/LoadBalancer/src/internal/loadguardian"
-	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
 )
 
 
@@ -29,29 +27,7 @@ func Up(file string) {
   defer os.Remove(socketPath)
 
   // Start process
-  lg, err := loadguardian.NewLoadGuardian(file)
-  
-  if err != nil {
-    fmt.Println(err.Error())
-    os.Exit(1)
-  }
-  lg.Config.CreateNetworks(lg.Client)
-  lg.Config.PullServices(lg.Client)
-
-  logChannel := make(chan servicemanager.LogMessage)
-  go logger.PrintLogs(logChannel)
-
-  newServices, err := lg.Config.CreateAllService(lg.Client)
-  lg.RunningServices = newServices
-  for _, service := range lg.RunningServices {
-    for _, container := range service {
-      go func(c servicemanager.Container) {
-        if err := container.StartAndFetchLogs(lg.Client, logChannel); err != nil {
-          fmt.Println(err.Error())
-        }
-      }(container)
-    }
-  }
+  lg := loadguardian.StartProcress(file)
 
   // Handle socket command
   go func() {
@@ -100,14 +76,15 @@ func handleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
     }
     file := parsedCommand[1]
     fmt.Println(file)
-    lg.Update(file)
+    loadguardian.UpdateProcess(file)
+    
+    conn.Write([]byte("Command executed successfully"))
 
   default:
     fmt.Fprintln(conn, "Unknown command:", command)
     conn.Write([]byte("Unknown command"))
   }
 }
-
 
 func Down() error {
   err := SendCommand("down")
@@ -116,7 +93,6 @@ func Down() error {
 
 func Update(file string) error {
   command := fmt.Sprintf("update|%s", file)
-
   err := SendCommand(command)
   return err
 }

@@ -18,20 +18,14 @@ type LoadGuardian struct {
 }
 
 
-func NewLoadGuardian(file string) (LoadGuardian, error) {
+func NewLoadGuardian() (*LoadGuardian, error) {
   cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
   if err != nil {
-    return LoadGuardian{}, err
-  }
-  c, err := config.ParseYAML(file)
-  if err != nil {
-    return LoadGuardian{}, err
+    return &LoadGuardian{}, err
   }
 
-  return LoadGuardian{
-
+  return &LoadGuardian{
     Client: cli,
-    Config: c,
   }, nil
 }
 
@@ -75,14 +69,4 @@ func (lg *LoadGuardian) CleanUp() {
     os.Exit(1)
   }
   fmt.Println("Services stopped. Exiting.")
-}
-
-
-func (lg *LoadGuardian) Update(file string) error {
-  newConfig, err := config.ParseYAML(file)
-  if err != nil {
-    return errors.New("Invalid file") 
-  }
-  lg.Config.Compare(newConfig) 
-  return nil
 }

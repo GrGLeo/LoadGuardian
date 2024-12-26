@@ -1,8 +1,10 @@
-package config
+package config_test
 
 import (
 	"os"
 	"testing"
+
+	"github.com/GrGLeo/LoadBalancer/src/internal/config"
 )
 
 func TestParseEnvs(t *testing.T) {
@@ -20,12 +22,12 @@ func TestParseEnvs(t *testing.T) {
 		{
 			name:     "Valid environment variables",
 			envs:     []string{"$FOO", "$BAZ"},
-			expected: []string{"bar", "qux"},
+			expected: []string{"FOO=bar", "BAZ=qux"},
 		},
 		{
 			name:     "Invalid environment variable",
 			envs:     []string{"$FOO", "$INVALID"},
-			expected: []string{"bar", ""},
+			expected: []string{"FOO=bar", "INVALID="},
 		},
 		{
 			name:     "Empty input",
@@ -36,7 +38,7 @@ func TestParseEnvs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			parsedEnvs := ParseEnvs(tt.envs)
+			parsedEnvs := config.ParseEnvs(tt.envs)
 			if len(parsedEnvs) != len(tt.expected) {
 				t.Errorf("ParseEnvs() length = %v, want %v", len(parsedEnvs), len(tt.expected))
 			}
@@ -49,4 +51,3 @@ func TestParseEnvs(t *testing.T) {
 		})
 	}
 }
-

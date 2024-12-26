@@ -46,7 +46,6 @@ func ParseEnvs(envs []string) []string {
     if strings.HasPrefix(env, "$"){
       name := env[1:]
       setEnvs := os.Getenv(name)
-
       parsedEnvs = append(parsedEnvs, fmt.Sprintf("%s=%s", name, setEnvs))
     }
   }

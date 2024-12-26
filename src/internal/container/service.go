@@ -1,4 +1,4 @@
-package servicemanager 
+package servicemanager
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/GrGLeo/LoadBalancer/src/pkg/utils"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -81,3 +82,33 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
     Name: name,
   }, nil
 }
+
+
+func (old *Service) Compare(new *Service) bool {
+  // image
+  if old.Image != new.Image {
+    return true
+  }
+  // networks
+  if diff := utils.CompareStrings(true, old.Network, new.Network); diff {
+    return true
+  }
+  // volume
+  if diff := utils.CompareStrings(true, old.Volume, new.Volume); diff {
+    return true
+  }
+  // port
+  if diff := utils.CompareStrings(true, old.Port, new.Port); diff {
+    return true
+  }
+  // envs
+  if diff := utils.CompareStrings(true, old.Envs, new.Envs); diff {
+    return true
+  }
+  // dependencies
+  if diff := utils.CompareStrings(false, old.Dependencies, new.Dependencies); diff {
+    return true
+  }
+  return false
+}
+

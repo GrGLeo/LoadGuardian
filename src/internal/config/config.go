@@ -26,6 +26,13 @@ type Config struct {
   Network map[string]Network `yaml:"networks,omitempty"`
 }
 
+type ServiceProvider interface {
+  GetService() map[string]servicemanager.Service
+}
+
+func (c *Config) GetService() map[string]servicemanager.Service {
+  return c.Service
+}
 
 func (c *Config) CreateNetworks(cli *client.Client) error {
   networks, err := cli.NetworkList(context.Background(), network.ListOptions{})
@@ -58,7 +65,7 @@ func (c *Config) CreateNetworks(cli *client.Client) error {
   return nil
 }
 
-func (c *Config) CheckServices(cli *client.Client) (map[string]bool, error) {
+func CheckServices(sp ServiceProvider, cli *client.Client) (map[string]bool, error) {
   // Retrieve existing image
   resp, err := cli.ImageList(context.Background(), image.ListOptions{})
   if err != nil {
@@ -66,7 +73,8 @@ func (c *Config) CheckServices(cli *client.Client) (map[string]bool, error) {
   }
   // Checking if service already have an existing image
   pullingServices := make(map[string]bool)
-  for _, serv := range c.Service {
+  Services := sp.GetService()
+  for _, serv := range Services {
     pullingServices[serv.Image] = true
   }
   for _, image := range resp {
@@ -83,15 +91,16 @@ func (c *Config) CheckServices(cli *client.Client) (map[string]bool, error) {
 }
 
 
-func (c *Config) PullServices(cli *client.Client) error {
-  ImageToPull, err:= c.CheckServices(cli)
+func PullServices(sp ServiceProvider, cli *client.Client) error {
+  ImageToPull, err:= CheckServices(sp, cli)
   if err != nil {
     fmt.Println("Failed to inspect images. Pulling image for all services")
   }
-  for name, service := range c.Service {
+  Services := sp.GetService()
+  for name, service := range Services {
     // Checking if image need to be pulled
     value, ok := ImageToPull[service.Image]
-    if ok && !value {
+    if !value && ok {
       fmt.Printf("%s Service %s already pulled\n", greenCheck, name)
       continue
     }
@@ -112,9 +121,10 @@ func (c *Config) PullServices(cli *client.Client) error {
   return nil
 }
 
-func (c *Config) CreateAllService(cli *client.Client) (map[string][]servicemanager.Container, error) {
+func CreateAllService(sp ServiceProvider, cli *client.Client) (map[string][]servicemanager.Container, error) {
   runningCont := make(map[string][]servicemanager.Container)
-  for name, service := range c.Service {
+  Services := sp.GetService()
+  for name, service := range Services {
     container, err := service.Create(cli, 1)
     if err != nil {
       return runningCont, err
@@ -123,6 +133,7 @@ func (c *Config) CreateAllService(cli *client.Client) (map[string][]servicemanag
   }
   return runningCont, nil
 }
+
 
 func OrderService(services map[string]servicemanager.Service) (map[string]servicemanager.Service, error) {
   visited := make(map[string]bool)
