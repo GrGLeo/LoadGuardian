@@ -3,9 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
-	"strconv"
+	"strings"
 	"syscall"
 
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
@@ -13,15 +14,21 @@ import (
 	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
 )
 
-func Up(file string) {
-  // Setting up start up
-  pid := os.Getpid()
-  err := os.WriteFile("loadguardian.pid", []byte(fmt.Sprintf("%d", pid)), 0644)
-  if err != nil {
-    fmt.Println("Failed to write pid, gracefull down command will not be available")
-  }
-  defer os.Remove("loadguardian.pid")
 
+const socketPath = "/tmp/loadguardian.sock"
+
+
+func Up(file string) {
+  // Setting up socket to listen for upcoming command
+  os.Remove(socketPath)
+  listener, err := net.Listen("unix", socketPath)
+  if err != nil {
+    fmt.Println("Failed to open socket. Will not listen for upcoming command")
+  }
+  defer listener.Close()
+  defer os.Remove(socketPath)
+
+  // Start process
   lg, err := loadguardian.NewLoadGuardian(file)
   
   if err != nil {
@@ -35,8 +42,8 @@ func Up(file string) {
   go logger.PrintLogs(logChannel)
 
   newServices, err := lg.Config.CreateAllService(lg.Client)
-  lg.RunningContainer = newServices
-  for _, service := range lg.RunningContainer {
+  lg.RunningServices = newServices
+  for _, service := range lg.RunningServices {
     for _, container := range service {
       go func(c servicemanager.Container) {
         if err := container.StartAndFetchLogs(lg.Client, logChannel); err != nil {
@@ -45,34 +52,95 @@ func Up(file string) {
       }(container)
     }
   }
-  // Handling keyboard shutdown
+
+  // Handle socket command
+  go func() {
+    for {
+      conn, err := listener.Accept()
+      if err != nil  {
+        fmt.Println("Error accepting connection")
+        continue
+      }
+      go handleSocketCommand(conn, &lg)
+    }
+  }()
+
+  // Handle keyboard shutdown
   signalChannel := make(chan os.Signal, 1)
   signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
   <-signalChannel
-
   // Clean up
-  fmt.Println("Stopping all services...")
-  err = lg.StopAll(0)
-  if err != nil {
-    fmt.Println("Error while stopping service")
-    os.Exit(1)
-  }
-  fmt.Println("Servies stopped. Exiting.")
+  lg.CleanUp()
 }
 
+func handleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
+  defer conn.Close()
+
+  buf := make([]byte, 1024)
+  n, err := conn.Read(buf)
+  if err != nil {
+    fmt.Println("Error reading the command")
+    return
+  }
+  command := string(buf[:n])
+  // Parse command
+  parsedCommand := strings.Split(command, "|")
+  command = parsedCommand[0]
+  switch command {
+  case "down":
+    lg.CleanUp()
+    conn.Write([]byte("Command executed successfully"))
+    os.Exit(0)
+
+  case "update":
+    if len(parsedCommand) < 2 {
+      msg := "Incomplete update command"
+      fmt.Println(msg)
+      conn.Write([]byte(msg))
+    }
+    file := parsedCommand[1]
+    fmt.Println(file)
+    lg.Update(file)
+
+  default:
+    fmt.Fprintln(conn, "Unknown command:", command)
+    conn.Write([]byte("Unknown command"))
+  }
+}
+
+
 func Down() error {
-  pidData, err := os.ReadFile("loadguardian.pid")
+  err := SendCommand("down")
+  return err
+}
+
+func Update(file string) error {
+  command := fmt.Sprintf("update|%s", file)
+
+  err := SendCommand(command)
+  return err
+}
+
+func SendCommand(command string) error {
+  conn, err := net.Dial("unix", socketPath)
   if err != nil {
-    return errors.New("Failed to find active guardian")
+    return errors.New("Failed to connect to the running guardian process")
   }
-  pid, err := strconv.Atoi(string(pidData))
+  defer conn.Close()
+
+  // Write command
+  byteCommand := []byte(command)
+  _, err = conn.Write(byteCommand)
   if err != nil {
-    return errors.New("Invalid pid in file")
+    return errors.New("Failed to send down command")
   }
-  process, err := os.FindProcess(pid)
-  err = process.Signal(syscall.SIGTERM)
+
+  //Read response
+  buff := make([]byte, 1024)
+  n, err := conn.Read(buff)
   if err != nil {
-    return errors.New("Failed to end process")
+    return errors.New("Failed to read response")
   }
+  fmt.Println("Response from guardian:", string(buff[:n]))
   return nil
 }

@@ -31,6 +31,17 @@ func main() {
       os.Exit(1)
     }
 
+  case "update":
+    if len(os.Args) < 3 {
+      fmt.Println("Usage update ./LoagdGuardian update <file>")
+      os.Exit(1)
+    }
+    file := os.Args[2]
+    if err := Update(file); err != nil {
+      fmt.Println(err.Error())
+      os.Exit(1)
+    }
+
   default:
     fmt.Println("Unknown command")
   }

@@ -1,11 +1,11 @@
 # To-Do List for Improvements
 
 ## 1. **Code Structure and Organization**
-- [ ] Separate the code into multiple files/modules for better readability.
-  - [ ] Create a `main.go` file for the entry point.
-  - [ ] Move Docker-related operations (e.g., `PullServices`, `CreateAllService`) into a `docker_utils.go` file.
-  - [ ] Place YAML parsing logic (`ParseYAML`) in a `config_parser.go` file.
-  - [ ] Move container operations (`Start`, `FetchLogs`) into a `container_ops.go` file.
+- [x] Separate the code into multiple files/modules for better readability.
+  - [x] Create a `main.go` file for the entry point.
+  - [x] Move Docker-related operations (e.g., `PullServices`, `CreateAllService`) into a `docker_utils.go` file.
+  - [x] Place YAML parsing logic (`ParseYAML`) in a `config_parser.go` file.
+  - [x] Move container operations (`Start`, `FetchLogs`) into a `container_ops.go` file.
 - [ ] Add meaningful comments for each function and type definition.
 - [ ] Use interfaces to make components like Docker client easier to mock for testing.
 
@@ -53,8 +53,8 @@
 ---
 
 ## 7. **Docker API Enhancements**
-- [ ] Add support for specifying container environment variables.
-- [ ] Handle cases where the image is already present and doesn't need pulling.
+- [x] Add support for specifying container environment variables.
+- [x] Handle cases where the image is already present and doesn't need pulling.
 - [ ] Support advanced network configurations (e.g., attaching containers to multiple networks).
 
 ---
