@@ -13,6 +13,7 @@ type Container struct {
   ID string
   Name string
   Url string
+  HealthCheck bool
   Port int
 }
 
@@ -101,7 +102,19 @@ func (c *Container) Remove(cli *client.Client) error {
   return nil
 }
 
-func (c *Container) HealthCheck(cli *client.Client) (bool, error) {
+func (c *Container) RunningCheck(cli *client.Client) (bool, error) {
+  inspect, err := cli.ContainerInspect(context.Background(), c.ID)
+  if err != nil {
+    return false, err
+  }
+  health := inspect.State.Status
+  if health == "running" {
+    return true, nil
+  }
+  return false, nil
+}
+
+func (c *Container) HealthChecker(cli *client.Client) (bool, error) {
   inspect, err := cli.ContainerInspect(context.Background(), c.ID)
   if err != nil {
     return false, err

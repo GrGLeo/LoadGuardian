@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/config"
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
@@ -115,16 +116,30 @@ func UpdateProcess(file string) error {
         fmt.Println("Failed to create container")
         continue
       }
-      err = container.Start(lg.Client)
-      if err != nil {
-        fmt.Println("Failed to start container")
-        continue
-      }
+      go func(c servicemanager.Container) {
+        if err := container.StartAndFetchLogs(lg.Client, logChannel); err != nil {
+          fmt.Println(err.Error())
+        }
+      }(container)
+
       // Implement health inspection
       pastContainer := matchingRunningService[i]
-      healthy, err := pastContainer.HealthCheck(lg.Client)
-      if err != nil {
-        fmt.Println("Failed to instpect container")
+      var healthy bool
+      for j := 0; j < 5; j++ {
+        if service.HealthCheck {
+          healthy, err = container.HealthChecker(lg.Client)
+        } else {
+          healthy, err = container.RunningCheck(lg.Client)
+        }
+        if err != nil {
+          fmt.Println("Failed to instpect container")
+        }
+        if healthy {
+          fmt.Println(container.Name, "healthy")
+          break
+        }
+        fmt.Println(container.Name, "unhealthay, retry...")
+        time.Sleep(2 * time.Second)
       }
 
       if healthy {
