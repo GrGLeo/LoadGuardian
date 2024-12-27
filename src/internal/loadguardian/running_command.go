@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/config"
-	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
+	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
 )
 
@@ -85,6 +85,7 @@ func UpdateProcess(file string) error {
           fmt.Println(err.Error())
         }
       }(container)
+      lg.RunningServices[name] = append(lg.RunningServices[name], container)
     }
   }
 
@@ -103,9 +104,12 @@ func UpdateProcess(file string) error {
       continue
     }
     pastServiceCount := len(matchingRunningService)
+
     // We get the len and iterate over the old container
-    for i := 0; i <= pastServiceCount; i++ {
-      n := pastServiceCount + i
+    for i := 0; i < pastServiceCount; i++ {
+      // We need to add one more than the current number since container naming start at 1
+      n := pastServiceCount + i + 1
+      
       container, err := service.Create(lg.Client, n)
       if err != nil {
         fmt.Println("Failed to create container")
@@ -117,9 +121,13 @@ func UpdateProcess(file string) error {
         continue
       }
       // Implement health inspection
-      healthy := true
+      pastContainer := matchingRunningService[i]
+      healthy, err := pastContainer.HealthCheck(lg.Client)
+      if err != nil {
+        fmt.Println("Failed to instpect container")
+      }
+
       if healthy {
-        pastContainer := matchingRunningService[i]
         timeout := 0
         pastContainer.Stop(lg.Client, &timeout)
         pastContainer.Remove(lg.Client)

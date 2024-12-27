@@ -1,7 +1,7 @@
 package config
 
 import (
-	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
+	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 )
 
 // TODO: handle the network changes
@@ -26,6 +26,7 @@ func (c *Config) CompareConfig(newConfig Config) (ConfigDiff, error) {
       compConfig.AddedService[name] = service
     } else {
       if service.Compare(&oldService) {
+        service.NextPort = service.NextPort 
         compConfig.UpdatedService[name] = service
       }
     }

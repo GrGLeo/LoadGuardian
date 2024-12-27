@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"gopkg.in/yaml.v3"
 )
@@ -22,6 +23,7 @@ func ParseYAML(file string) (Config, error) {
     if value.Image == "" {
       log.Fatalf("Service %s unknown Image name", name)
     }
+    value.NextPort = &atomic.Uint32{}
 
     if len(value.Envs) > 0 {
       setEnvs := ParseEnvs(value.Envs)

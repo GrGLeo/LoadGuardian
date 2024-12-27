@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 
-	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
+	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 	"github.com/GrGLeo/LoadBalancer/src/pkg/cleaner"
 )
 

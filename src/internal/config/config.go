@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
+	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
 	"github.com/briandowns/spinner"
 	"github.com/docker/docker/api/types/image"

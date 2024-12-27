@@ -18,19 +18,19 @@
   - **For Each Container:**
     - [x] Pull the updated image for the service.
       - [ ] Log the image version being used.
-    - [ ] Create and start a new container with the updated image:
-      - [ ] Apply the same configuration (e.g., ports, environment variables, volume mounts) to the new container.
+    - [x] Create and start a new container with the updated image:
+      - [x] Apply the same configuration (e.g., ports, environment variables, volume mounts) to the new container.
       - [ ] Assign resource limits (if applicable).
-      - [ ] Log the new container ID.
+      - [x] Log the new container ID.
     - [ ] Perform health checks:
       - [ ] Wait for the new container to pass the health check.
       - [ ] Retry if the health check fails (up to the retry limit).
       - [ ] Log health check success or failure.
     - [ ] Redirect traffic (if applicable):
       - [ ] Gradually shift traffic to the new container using a load balancer or similar mechanism.
-    - [ ] Stop and remove the old container:
-      - [ ] Ensure the old container is not handling active requests before stopping it.
-      - [ ] Log the removal of the old container.
+    - [x] Stop and remove the old container:
+      - [x] Ensure the old container is not handling active requests before stopping it.
+      - [x] Log the removal of the old container.
 
 - **Handle Multiple Replicas**
   - [ ] Repeat the above process for each replica of the service.

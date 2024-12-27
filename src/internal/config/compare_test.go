@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/config"
-	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/container"
+	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 	"github.com/GrGLeo/LoadBalancer/src/pkg/utils"
 )
 
