@@ -23,11 +23,11 @@ func StartProcress(file string) LoadGuardian {
   lg.Config = c
 
   lg.Config.CreateNetworks(lg.Client)
-  config.PullServices(&lg.Config, lg.Client)
+  config.PullServices(&lg.Config, true, lg.Client)
 
   go logger.PrintLogs(logChannel)
 
-  newServices, err := config.CreateAllService(&lg.Config, lg.Client)
+  newServices, err := config.CreateAllService(&lg.Config, true, lg.Client)
   lg.RunningServices = newServices
   for _, service := range lg.RunningServices {
     for _, container := range service {
@@ -49,9 +49,8 @@ func UpdateProcess(file string) error {
   }
   cd, err := lg.Config.CompareConfig(newConfig)
 
-  // Pull new & updated services
-  fmt.Println(lg.Client)
-  err = config.PullServices(&cd, lg.Client)
+  // Pull new services
+  err = config.PullServices(&cd, true, lg.Client)
   if err != nil {
     log.Fatal(err.Error())
   }
@@ -68,8 +67,8 @@ func UpdateProcess(file string) error {
     }
   }
 
-  // Create the new and unpdated services
-  newServices, err := config.CreateAllService(&cd, lg.Client)
+  // Create the new services
+  newServices, err := config.CreateAllService(&cd, true, lg.Client)
   if err != nil {
     log.Fatal(err.Error())
   }
@@ -86,6 +85,19 @@ func UpdateProcess(file string) error {
           fmt.Println(err.Error())
         }
       }(container)
+    }
+  }
+
+  // Rolling update
+  for name := range cd.UpdatedService {
+    matchingRunningService, ok := lg.RunningServices[name]
+    if !ok {
+      fmt.Println("Failed to match updated Services with past one")
+      continue
+    }
+    pastServiceCount := len(matchingRunningService)
+    // We get the len and iterate over the old container
+    for i := 0; i <= pastServiceCount; i++ {
     }
   }
   return nil

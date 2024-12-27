@@ -27,10 +27,11 @@ type Config struct {
 }
 
 type ServiceProvider interface {
-  GetService() map[string]servicemanager.Service
+  GetService(bool) map[string]servicemanager.Service
 }
 
-func (c *Config) GetService() map[string]servicemanager.Service {
+func (c *Config) GetService(p bool) map[string]servicemanager.Service {
+  //p: useless for this but needed for ConfigDiff implementation
   return c.Service
 }
 
@@ -73,7 +74,7 @@ func CheckServices(sp ServiceProvider, cli *client.Client) (map[string]bool, err
   }
   // Checking if service already have an existing image
   pullingServices := make(map[string]bool)
-  Services := sp.GetService()
+  Services := sp.GetService(true)
   for _, serv := range Services {
     pullingServices[serv.Image] = true
   }
@@ -91,12 +92,12 @@ func CheckServices(sp ServiceProvider, cli *client.Client) (map[string]bool, err
 }
 
 
-func PullServices(sp ServiceProvider, cli *client.Client) error {
+func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
   ImageToPull, err:= CheckServices(sp, cli)
   if err != nil {
     fmt.Println("Failed to inspect images. Pulling image for all services")
   }
-  Services := sp.GetService()
+  Services := sp.GetService(p)
   for name, service := range Services {
     // Checking if image need to be pulled
     value, ok := ImageToPull[service.Image]
@@ -121,9 +122,9 @@ func PullServices(sp ServiceProvider, cli *client.Client) error {
   return nil
 }
 
-func CreateAllService(sp ServiceProvider, cli *client.Client) (map[string][]servicemanager.Container, error) {
+func CreateAllService(sp ServiceProvider, p bool, cli *client.Client) (map[string][]servicemanager.Container, error) {
   runningCont := make(map[string][]servicemanager.Container)
-  Services := sp.GetService()
+  Services := sp.GetService(p)
   for name, service := range Services {
     container, err := service.Create(cli, 1)
     if err != nil {

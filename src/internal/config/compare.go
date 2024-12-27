@@ -41,13 +41,20 @@ func (c *Config) CompareConfig(newConfig Config) (ConfigDiff, error) {
 }
 
 
-func (cf *ConfigDiff) GetService() map[string]servicemanager.Service {
+func (cf *ConfigDiff) GetService(p bool) map[string]servicemanager.Service {
+  // p: flag if true return AddedService
+  // if false return UpdatedService
   services := make(map[string]servicemanager.Service)
-  for name, service := range cf.AddedService {
-    services[name] = service
+  if p {
+    for name, service := range cf.AddedService {
+      services[name] = service
+    }
   }
-  for name, service := range cf.UpdatedService {
-    services[name] = service
+
+  if !p {
+    for name, service := range cf.UpdatedService {
+      services[name] = service
+    }
   }
   return services
 }

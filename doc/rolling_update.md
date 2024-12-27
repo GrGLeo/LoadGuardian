@@ -16,7 +16,7 @@
 
 - **Update Containers One by One**
   - **For Each Container:**
-    - [ ] Pull the updated image for the service.
+    - [x] Pull the updated image for the service.
       - [ ] Log the image version being used.
     - [ ] Create and start a new container with the updated image:
       - [ ] Apply the same configuration (e.g., ports, environment variables, volume mounts) to the new container.
