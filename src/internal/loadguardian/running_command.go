@@ -11,6 +11,7 @@ import (
 	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
 )
 
+var logChannel = make(chan servicemanager.LogMessage)
 
 func StartProcress(file string) LoadGuardian {
   lg := GetLoadGuardian()
@@ -24,7 +25,6 @@ func StartProcress(file string) LoadGuardian {
   lg.Config.CreateNetworks(lg.Client)
   config.PullServices(&lg.Config, lg.Client)
 
-  logChannel := make(chan servicemanager.LogMessage)
   go logger.PrintLogs(logChannel)
 
   newServices, err := config.CreateAllService(&lg.Config, lg.Client)
@@ -49,7 +49,7 @@ func UpdateProcess(file string) error {
   }
   cd, err := lg.Config.CompareConfig(newConfig)
 
-  // Handle new & updated services
+  // Pull new & updated services
   fmt.Println(lg.Client)
   err = config.PullServices(&cd, lg.Client)
   if err != nil {
@@ -68,9 +68,25 @@ func UpdateProcess(file string) error {
     }
   }
 
-  _, err = config.CreateAllService(&cd, lg.Client)
+  // Create the new and unpdated services
+  newServices, err := config.CreateAllService(&cd, lg.Client)
   if err != nil {
     log.Fatal(err.Error())
+  }
+  // Start the new services
+  for name := range cd.AddedService {
+    containers, ok := newServices[name]
+    if !ok {
+      fmt.Println("Failed to match new Services with created one")
+      continue
+    }
+    for _, container := range containers {
+      go func(c servicemanager.Container) {
+        if err := container.StartAndFetchLogs(lg.Client, logChannel); err != nil {
+          fmt.Println(err.Error())
+        }
+      }(container)
+    }
   }
   return nil
 }

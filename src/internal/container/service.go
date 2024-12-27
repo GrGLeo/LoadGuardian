@@ -77,9 +77,17 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
     fmt.Println(err.Error())
     return Container{}, err
   }
+  intPort := -1
+  intPort, err = strconv.Atoi(hport)
+  if err != nil {
+    // hPort not initialized
+    fmt.Println(err.Error())
+  }
+
   return Container{
     ID: ContainerID,
     Name: name,
+    Port: intPort,
   }, nil
 }
 

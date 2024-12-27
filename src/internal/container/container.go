@@ -13,6 +13,7 @@ type Container struct {
   ID string
   Name string
   Url string
+  Port int
 }
 
 type LogMessage struct {

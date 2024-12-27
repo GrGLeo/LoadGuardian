@@ -1,12 +1,8 @@
 ### Rolling Update Mechanism Implementation Checklist
 
 #### 1. Pre-Implementation Planning
-- [ ] Identify the service to be updated.
-  - [ ] Gather information about the service, such as number of replicas and current configuration.
-- [ ] Ensure the update process is safe:
-  - [ ] Verify the new image or version is fully tested.
-  - [ ] Confirm compatibility with dependent services.
-  - [ ] Ensure data schema (if applicable) remains consistent or backward-compatible.
+- [x] Identify the service to be updated.
+  - [x] Gather information about the service, such as number of replicas and current configuration.
 - [ ] Set up a reliable health check mechanism:
   - [ ] Define health criteria (e.g., response to a specific endpoint or success of a custom script).
   - [ ] Determine a timeout and retry policy for health checks.
