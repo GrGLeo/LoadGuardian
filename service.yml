@@ -1,8 +1,6 @@
 service:
   LogTen:
     image: deretz/log_ten
-    network: 
-      - app-network
     ports: 
       - "8080:8080"
     envs:

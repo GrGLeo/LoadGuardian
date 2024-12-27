@@ -89,7 +89,14 @@ func UpdateProcess(file string) error {
   }
 
   // Rolling update
-  for name := range cd.UpdatedService {
+  err = config.PullServices(&cd, false, lg.Client)
+  if err != nil {
+    fmt.Println("Failed to pull updated services\n Keeping old version running")
+    return nil
+  }
+
+  fmt.Println("Updating services")
+  for name, service := range cd.UpdatedService {
     matchingRunningService, ok := lg.RunningServices[name]
     if !ok {
       fmt.Println("Failed to match updated Services with past one")
@@ -98,6 +105,28 @@ func UpdateProcess(file string) error {
     pastServiceCount := len(matchingRunningService)
     // We get the len and iterate over the old container
     for i := 0; i <= pastServiceCount; i++ {
+      n := pastServiceCount + i
+      container, err := service.Create(lg.Client, n)
+      if err != nil {
+        fmt.Println("Failed to create container")
+        continue
+      }
+      err = container.Start(lg.Client)
+      if err != nil {
+        fmt.Println("Failed to start container")
+        continue
+      }
+      // Implement health inspection
+      healthy := true
+      if healthy {
+        pastContainer := matchingRunningService[i]
+        timeout := 0
+        pastContainer.Stop(lg.Client, &timeout)
+        pastContainer.Remove(lg.Client)
+        matchingRunningService[i] = container
+      } else {
+        // Abort the update, recursively??
+      }
     }
   }
   return nil
