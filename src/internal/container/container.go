@@ -89,3 +89,14 @@ func (c *Container) Stop(cli *client.Client, timeout *int) error {
   }
   return nil
 }
+
+func (c *Container) Remove(cli *client.Client) error {
+ opt := container.RemoveOptions{}
+ err := cli.ContainerRemove(context.Background(), c.ID, opt)
+  if err != nil {
+    fmt.Printf("Error while removing container: %s\n", c.Name)
+    return err
+  }
+  return nil
+}
+

@@ -39,6 +39,10 @@ func (lg *LoadGuardian) StopAll(timeout int) error {
       if err != nil {
         return err
       }
+      err = c.Remove(lg.Client)
+      if err != nil {
+        return err
+      }
     }
   }
   return nil
