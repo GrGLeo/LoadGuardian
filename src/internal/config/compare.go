@@ -1,6 +1,8 @@
 package config
 
 import (
+	"sync/atomic"
+
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 )
 
@@ -26,7 +28,9 @@ func (c *Config) CompareConfig(newConfig Config) (ConfigDiff, error) {
       compConfig.AddedService[name] = service
     } else {
       if service.Compare(&oldService) {
-        service.NextPort = service.NextPort 
+        newNextPort := atomic.Uint32{}
+        newNextPort.Store(oldService.NextPort.Load())
+        service.NextPort = &newNextPort
         compConfig.UpdatedService[name] = service
       }
     }

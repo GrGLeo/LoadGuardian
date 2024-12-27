@@ -27,6 +27,7 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
   ports := []int{-1,-1}
   var err error
   if len(s.Port) > 0 {
+    fmt.Println(s.Image, "Port: ", s.NextPort.Load())
     ports, err = s.GetPort()
     if err != nil {
       fmt.Println("Failed to read port, Ports will not be set")
@@ -72,7 +73,7 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
   resp, err := cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, name) 
   ContainerID := resp.ID
   if err != nil {
-    fmt.Println(err.Error())
+    fmt.Println("Failed to create container: ", name, err.Error())
     return Container{}, err
   }
   name = name + "-" + strconv.Itoa(n)
