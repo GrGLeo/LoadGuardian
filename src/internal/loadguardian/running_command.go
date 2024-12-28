@@ -99,6 +99,7 @@ func UpdateProcess(file string) error {
 
   fmt.Println("Updating services")
   for name, service := range cd.UpdatedService {
+    var rollbackPairs [][2]*servicemanager.Container
     matchingRunningService, ok := lg.RunningServices[name]
     if !ok {
       fmt.Println("Failed to match updated Services with past one")
@@ -138,7 +139,7 @@ func UpdateProcess(file string) error {
           fmt.Println(container.Name, "healthy")
           break
         }
-        fmt.Println(container.Name, "unhealthay, retry...")
+        fmt.Println(container.Name, "unhealthy, retry...")
         time.Sleep(2 * time.Second)
       }
 
@@ -147,8 +148,13 @@ func UpdateProcess(file string) error {
         pastContainer.Stop(lg.Client, &timeout)
         pastContainer.Remove(lg.Client)
         matchingRunningService[i] = container
+        // Store the pair in case or rollback
+        rollbackPairs = append(rollbackPairs, [2]*servicemanager.Container{&pastContainer, &container})
       } else {
-        // Abort the update, recursively??
+        // Stop and remove the current iteration
+        timeout := 0
+        container.Stop(lg.Client, &timeout)
+        container.Remove(lg.Client)
       }
     }
   }
