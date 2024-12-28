@@ -25,6 +25,12 @@ func ParseYAML(file string) (Config, error) {
     }
     value.NextPort = &atomic.Uint32{}
 
+    // Set the default value of replica to one
+    if value.Replicas == 0 {
+      value.Replicas = 1
+    }
+
+    // Set env based on .env file 
     if len(value.Envs) > 0 {
       setEnvs := ParseEnvs(value.Envs)
       value.Envs = setEnvs

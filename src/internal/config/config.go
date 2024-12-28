@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"go.uber.org/zap"
 )
 
 const greenCheck = "\033[32m✓\033[0m"
@@ -125,13 +126,18 @@ func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
 func CreateAllService(sp ServiceProvider, p bool, cli *client.Client) (map[string][]servicemanager.Container, error) {
   runningCont := make(map[string][]servicemanager.Container)
   Services := sp.GetService(p)
+  
   for name, service := range Services {
-    container, err := service.Create(cli, 1)
-    if err != nil {
-      return runningCont, err
+    for i := 1; i <= service.Replicas; i++ {
+      zap.L().Sugar().Infof("creating service: %s replicas: %d", name, i)
+      container, err := service.Create(cli, i)
+      if err != nil {
+        return runningCont, err
+      }
+      runningCont[name] = append(runningCont[name], container)
     }
-    runningCont[name] = append(runningCont[name], container)
   }
+  zap.L().Sugar().Infoln(runningCont)
   return runningCont, nil
 }
 
@@ -159,7 +165,7 @@ func OrderService(services map[string]servicemanager.Service) (map[string]servic
     }
     return nil
   }
-  for name, _ := range services {
+  for name := range services {
     if err := visit(name); err != nil {
       return nil, err
     }

@@ -8,6 +8,9 @@ service:
     envs:
       - $TEN
 
+  LogThree:
+    image: deretz/log_three
+
   LogFive:
     image: deretz/log_five
     network: 

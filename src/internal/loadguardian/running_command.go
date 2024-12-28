@@ -4,22 +4,22 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/config"
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
+	"go.uber.org/zap"
 )
 
+var zaplog = zap.L().Sugar()
 var logChannel = make(chan servicemanager.LogMessage)
 
 func StartProcress(file string) LoadGuardian {
   lg := GetLoadGuardian()
   c, err := config.ParseYAML(file)
   if err != nil {
-    fmt.Println(err.Error())
-    os.Exit(1)
+    zaplog.Fatalln(err.Error())
   }
   lg.Config = c
 
@@ -29,6 +29,9 @@ func StartProcress(file string) LoadGuardian {
   go logger.PrintLogs(logChannel)
 
   newServices, err := config.CreateAllService(&lg.Config, true, lg.Client)
+  if err != nil {
+    zaplog.Errorf("Error while creating service: %q", err.Error())
+  }
   lg.RunningServices = newServices
   for _, service := range lg.RunningServices {
     for _, container := range service {
@@ -61,7 +64,7 @@ func UpdateProcess(file string) error {
     containers, ok := lg.RunningServices[name]
     if ok {
       for _, c := range containers {
-        fmt.Printf("Removing service: %s\n", name)
+        zaplog.Infof("Removing service: %s\n", name)
         timeout := 0
         c.Stop(lg.Client, &timeout)
       }
@@ -77,7 +80,7 @@ func UpdateProcess(file string) error {
   for name := range cd.AddedService {
     containers, ok := newServices[name]
     if !ok {
-      fmt.Println("Failed to match new Services with created one")
+      zaplog.Warnln("Failed to match new Services with created one")
       continue
     }
     for _, container := range containers {
@@ -93,11 +96,11 @@ func UpdateProcess(file string) error {
   // Rolling update
   err = config.PullServices(&cd, false, lg.Client)
   if err != nil {
-    fmt.Println("Failed to pull updated services\n Keeping old version running")
+    zap.L().Sugar().Errorln("Failed to pull updated services. Keeping old version running")
     return nil
   }
 
-  fmt.Println("Updating services")
+  zap.L().Sugar().Info("Updating services")
   for name, service := range cd.UpdatedService {
     var rollbackPairs [][2]*servicemanager.Container
     matchingRunningService, ok := lg.RunningServices[name]
