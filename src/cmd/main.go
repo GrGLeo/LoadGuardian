@@ -5,13 +5,18 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
+
+func init() {
+  zap.ReplaceGlobals(zap.Must(zap.NewDevelopment()))
+}
 
 func main() {
   // Loading env variable for parsing
   err := godotenv.Load()
   if err != nil {
-    fmt.Println("Failed to read .env\n WARNING: Env variable might not be set correctly.")
+    zap.L().Sugar().Warn("Failed to read .env\n Env variable might not be set correctly")
   }
 
   // Reading command
@@ -27,6 +32,7 @@ func main() {
 
   case "down":
     if err := Down(); err != nil {
+      zap.L().Sugar().Fatalln("Fail to clean up process")
       fmt.Println(err.Error())
       os.Exit(1)
     }

@@ -10,6 +10,7 @@ service:
     image: deretz/log_three
     envs:
       - $THREE
+    replicas: 2
 
 networks:
   app-network:

@@ -19,6 +19,7 @@ type Service struct {
   Volume []string  `yaml:"volume,omitempty"`
   Port []string `yaml:"ports,omitempty"`
   Envs []string `yaml:"envs,omitempty"`
+  Replicas int `yaml:"replicas,omitempty"`
   HealthCheck bool `yaml:"healthcheck,omitempty"`
   Dependencies []string `yaml:"dependencies,omitempty"`
   NextPort *atomic.Uint32 `yaml:"-"`
