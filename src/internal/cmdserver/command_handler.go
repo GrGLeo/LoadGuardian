@@ -52,6 +52,7 @@ func Up(file string) {
 }
 
 func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
+  zaplog.Errorf("Am i here??")
   defer conn.Close()
   var baseCmd struct {
     Name string `json:"name"`
@@ -68,6 +69,7 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
     zaplog.Errorf("Failed to unmarshal command: %s\n", err.Error())
     return
   }
+  zaplog.Infof("command receive: %q\n", baseCmd.Name)
 
   switch baseCmd.Name {
   case "up":
@@ -97,7 +99,59 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
         }, 
       })
     }
+  case "down":
+    var downCmd cmdclient.DownCommand
+    if err := json.Unmarshal(data, &downCmd); err != nil {
+      zaplog.Errorf("Failed to parse up command: %s\n", err.Error())
+      return
+    }
+    zaplog.Infof("Processing UpCommand: %+v\n", downCmd)
+
+    scheduleDelay := downCmd.Schedule
+    if downCmd.Schedule > 0 {
+      executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Hour)
+      _ = ScheduleCommand{
+        Name: downCmd.Name,
+        Args: CommandArgs{
+        }, 
+        ExecuteTime: executeTime,
+      }
+    } else {
+      ExecuteCommand(RunnableCommand{
+        Name: downCmd.Name,
+        Args: CommandArgs{
+        }, 
+      })
+    }
+
+  case "update":
+    var updateCmd cmdclient.UpdateCommand
+    if err := json.Unmarshal(data, &updateCmd); err != nil {
+      zaplog.Errorf("Failed to parse up command: %s\n", err.Error())
+      return
+    }
+    zaplog.Infof("Processing UpCommand: %+v\n", updateCmd)
+    scheduleDelay := updateCmd.Schedule
+    File := updateCmd.File
+    if updateCmd.Schedule > 0 {
+      executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Hour)
+      _ = ScheduleCommand{
+        Name: updateCmd.Name,
+        Args: CommandArgs{
+          File: File,
+        }, 
+        ExecuteTime: executeTime,
+      }
+    } else {
+      ExecuteCommand(RunnableCommand{
+        Name: updateCmd.Name,
+        Args: CommandArgs{
+          File: File,
+        }, 
+      })
+    }
   }
+
 }
 //  command := ""
 //

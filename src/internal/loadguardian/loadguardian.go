@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-
 type LoadGuardian struct {
   Client *client.Client
   Config config.Config
@@ -20,6 +19,7 @@ type LoadGuardian struct {
 
 
 func NewLoadGuardian() (*LoadGuardian, error) {
+  zaplog.Infoln("Initializing LoadGuardian")
   cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
   if err != nil {
     return &LoadGuardian{}, err
@@ -32,7 +32,7 @@ func NewLoadGuardian() (*LoadGuardian, error) {
 
 
 func (lg *LoadGuardian) StopAll(timeout int) error {
-  fmt.Println("Stopping all container")
+  zaplog.Infoln("Stopping all container")
   for name, containers := range lg.RunningServices {
     zap.L().Sugar().Infof("Stopping services: %s\n", name)
     for _, c := range containers {
@@ -51,7 +51,7 @@ func (lg *LoadGuardian) StopAll(timeout int) error {
 
 
 func (lg *LoadGuardian) StopService(serviceName string, timeout int) error {
-  zap.L().Sugar().Infof("Stopping services: %s\n", serviceName)
+  zaplog.Infof("Stopping services: %s\n", serviceName)
   containers, ok := lg.RunningServices[serviceName]
   if !ok {
     return errors.New(fmt.Sprintf("Failed to found service: %s", serviceName))
@@ -67,11 +67,11 @@ func (lg *LoadGuardian) StopService(serviceName string, timeout int) error {
 
 
 func (lg *LoadGuardian) CleanUp() {
-  zap.L().Sugar().Infoln("Stopping all services")
+  zaplog.Infoln("Stopping all services")
   err := lg.StopAll(0)
   if err != nil {
-    zap.L().Sugar().Infoln("Error while stopping service")
+    zaplog.Infoln("Error while stopping service")
     os.Exit(1)
   }
-  zap.L().Sugar().Infoln("Services stopped. Exiting.")
+  zaplog.Infoln("Services stopped. Exiting.")
 }
