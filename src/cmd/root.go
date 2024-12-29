@@ -34,6 +34,7 @@ var rootCmd = &cobra.Command{
     defer listener.Close()
     defer os.Remove(socketPath)
 
+    var scheduleCmd []*cmdserver.ScheduleCommand
     // Handle socket command
     go func() {
       for {
@@ -42,10 +43,12 @@ var rootCmd = &cobra.Command{
           zaplog.Warnf("Error accepting connection: %s", err.Error())
           continue
         }
-        go cmdserver.HandleSocketCommand(conn, lg)
-
+        go cmdserver.HandleSocketCommand(conn, lg, &scheduleCmd)
       }
   }()
+  // Check and run schedule command
+  go cmdserver.ScheduleChecker()
+
   // Handle keyboard shutdown
   signalChannel := make(chan os.Signal, 1)
   signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)

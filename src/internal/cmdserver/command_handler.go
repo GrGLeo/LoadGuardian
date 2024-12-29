@@ -14,13 +14,9 @@ import (
 
 const socketPath = "/tmp/loadguardian.sock"
 
+var scheduleCmdCh = make(chan *ScheduleCommand, 100)
 
-func Up(file string) {
-  // Start process
-  loadguardian.StartProcress(file)
-}
-
-func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
+func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian, scheduleCmd *[]*ScheduleCommand) {
   zaplog.Errorf("Am i here??")
   defer conn.Close()
   var baseCmd struct {
@@ -52,14 +48,15 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
     scheduleDelay := upCmd.Schedule
     File := upCmd.File
     if upCmd.Schedule > 0 {
-      executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Hour)
-      _ = ScheduleCommand{
+      executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Minute)
+      UpCmd := ScheduleCommand{
         Name: upCmd.Name,
         Args: CommandArgs{
           File: File,
         }, 
         ExecuteTime: executeTime,
       }
+      scheduleCmdCh <- &UpCmd
       conn.Write([]byte(fmt.Sprintf("Command schedule for: %s", executeTime.Format(time.ANSIC))))
     } else {
       ExecuteCommand(RunnableCommand{
@@ -67,7 +64,8 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
         Args: CommandArgs{
           File: File,
         }, 
-      }, conn)
+      })
+      conn.Write([]byte("Command executed successfully"))
     }
 
   case "down":
@@ -81,19 +79,21 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
     scheduleDelay := downCmd.Schedule
     if downCmd.Schedule > 0 {
       executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Hour)
-      _ = ScheduleCommand{
+      DownCmd := ScheduleCommand{
         Name: downCmd.Name,
         Args: CommandArgs{
         }, 
         ExecuteTime: executeTime,
       }
+      scheduleCmdCh <- &DownCmd
       conn.Write([]byte(fmt.Sprintf("Command schedule for: %s", executeTime.Format("ANSIC"))))
     } else {
       ExecuteCommand(RunnableCommand{
         Name: downCmd.Name,
         Args: CommandArgs{
         }, 
-      }, conn)
+      })
+      conn.Write([]byte("Command executed successfully"))
     }
 
   case "update":
@@ -107,13 +107,14 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
     File := updateCmd.File
     if updateCmd.Schedule > 0 {
       executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Hour)
-      _ = ScheduleCommand{
+      UpdateCmd := ScheduleCommand{
         Name: updateCmd.Name,
         Args: CommandArgs{
-          File: File,
+        File: File,
         }, 
         ExecuteTime: executeTime,
       }
+      scheduleCmdCh <- &UpdateCmd
       conn.Write([]byte(fmt.Sprintf("Command schedule for: %s", executeTime.Format("ANSIC"))))
     } else {
       ExecuteCommand(RunnableCommand{
@@ -121,7 +122,8 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
         Args: CommandArgs{
           File: File,
         }, 
-      }, conn)
+      })
+      conn.Write([]byte("Command executed successfully"))
     }
   }
 
