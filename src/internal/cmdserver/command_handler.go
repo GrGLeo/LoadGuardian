@@ -1,4 +1,4 @@
-package command
+package cmdserver
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -40,7 +39,7 @@ func Up(file string) {
         fmt.Println("Error accepting connection")
         continue
       }
-      go handleSocketCommand(conn, &lg)
+      go HandleSocketCommand(conn, &lg)
     }
   }()
 
@@ -52,60 +51,81 @@ func Up(file string) {
   lg.CleanUp()
 }
 
-func handleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
+func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
   defer conn.Close()
+  var baseCmd struct {
+    Name string `json:"name"`
+  }
+  buff := make([]byte, 1024)
+  n, err := conn.Read(buff)
+  if err != nil {
+    zaplog.Errorf("Failed to read command: %s\n", err.Error())
+    return
+  }
 
-  var cmd cmdclient.Command
-  decoder := json.NewDecoder(conn)
-  decoder.Decode(&cmd)
+  data := buff[:n]
+  if err := json.Unmarshal(data, &baseCmd); err != nil {
+    zaplog.Errorf("Failed to unmarshal command: %s\n", err.Error())
+    return
+  }
 
-  fmt.Printf("Received command: %+v\n", cmd)
-  scheduleDelay := cmd.Schedule
-  File := cmd.File
-  if cmd.Schedule > 0 {
-    executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Hour)
-    _ = ScheduleCommand{
-      Name: cmd.Name,
-      Args: CommandArgs{
-        File: File,
-      }, 
-      ExecuteTime: executeTime,
+  switch baseCmd.Name {
+  case "up":
+    var upCmd cmdclient.UpCommand
+    if err := json.Unmarshal(data, &upCmd); err != nil {
+      zaplog.Errorf("Failed to parse up command: %s\n", err.Error())
+      return
     }
-  } else {
-    ExecuteCommand(RunnableCommand{
-      Name: cmd.Name,
-      Args: CommandArgs{
-        File: File,
-      }, 
-    })
-}
-  command := ""
+    zaplog.Infof("Processing UpCommand: %+v\n", upCmd)
 
-  parsedCommand := strings.Split(command, "|")
-  command = parsedCommand[0]
-  switch command {
-  case "down":
-    lg.CleanUp()
-    conn.Write([]byte("Command executed successfully"))
-    os.Exit(0)
-
-  case "update":
-    if len(parsedCommand) < 2 {
-      msg := "Incomplete update command"
-      fmt.Println(msg)
-      conn.Write([]byte(msg))
+    scheduleDelay := upCmd.Schedule
+    File := upCmd.File
+    if upCmd.Schedule > 0 {
+      executeTime := time.Now().Add(time.Duration(scheduleDelay) * time.Hour)
+      _ = ScheduleCommand{
+        Name: upCmd.Name,
+        Args: CommandArgs{
+          File: File,
+        }, 
+        ExecuteTime: executeTime,
+      }
+    } else {
+      ExecuteCommand(RunnableCommand{
+        Name: upCmd.Name,
+        Args: CommandArgs{
+          File: File,
+        }, 
+      })
     }
-    file := parsedCommand[1]
-    fmt.Println(file)
-    loadguardian.UpdateProcess(file)
-    
-    conn.Write([]byte("Command executed successfully"))
-
-  default:
-    fmt.Fprintln(conn, "Unknown command:", command)
-    conn.Write([]byte("Unknown command"))
   }
 }
+//  command := ""
+//
+//  parsedCommand := strings.Split(command, "|")
+//  command = parsedCommand[0]
+//  switch command {
+//  case "down":
+//    lg.CleanUp()
+//    conn.Write([]byte("Command executed successfully"))
+//    os.Exit(0)
+//
+//  case "update":
+//    if len(parsedCommand) < 2 {
+//      msg := "Incomplete update command"
+//      fmt.Println(msg)
+//      conn.Write([]byte(msg))
+//    }
+//    file := parsedCommand[1]
+//    fmt.Println(file)
+//    loadguardian.UpdateProcess(file)
+//    
+//    conn.Write([]byte("Command executed successfully"))
+//
+//  default:
+//    fmt.Fprintln(conn, "Unknown command:", command)
+//    conn.Write([]byte("Unknown command"))
+//  }
+//}
 
 func Down() error {
   err := SendCommand("down")

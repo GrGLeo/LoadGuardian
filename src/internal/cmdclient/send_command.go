@@ -1,7 +1,6 @@
 package cmdclient
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,32 +11,9 @@ import (
 const socketPath = "/tmp/loadguardian.sock"
 var zaplog = zap.L().Sugar()
 
-type Command struct {
-  Name string `json:"name"`
-  File string `json:"file"`
-  Schedule int `json:"schedule"`
-}
 
-
-func PrepCommand(name, file string, schedule int) []byte {
-  if name == "" {
-    zaplog.Fatalln("No action passed")
-  }
-  cmd := Command{
-    Name: name,
-    File: file,
-    Schedule: schedule,
-  }
-  cmdJson, err := json.Marshal(cmd)
-  if err != nil {
-    zaplog.Fatalf("Failed to parsed command: %q", err.Error())
-  }
-  zaplog.Infoln(string(cmdJson))
-  return cmdJson
-}
-
-
-func SendCommand(byteCommand []byte) error {
+func SendCommand(command commandConfig) error {
+  byteCommand := command.PrepCommand()
   conn, err := net.Dial("unix", socketPath)
   if err != nil {
     return errors.New("Failed to connect to the running guardian process")
