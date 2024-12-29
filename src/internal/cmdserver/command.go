@@ -1,6 +1,7 @@
 package cmdserver
 
 import (
+	"net"
 	"os"
 	"time"
 
@@ -40,7 +41,7 @@ func (sc ScheduleCommand) GetCommand() RunnableCommand {
   }
 }
 
-func ExecuteCommand(cp CommandProvider) {
+func ExecuteCommand(cp CommandProvider, conn net.Conn) {
   lg := loadguardian.GetLoadGuardian()
   cmd := cp.GetCommand()
   commandName := cmd.Name
@@ -49,15 +50,17 @@ func ExecuteCommand(cp CommandProvider) {
   case "up":
     file := cmd.Args.File
     Up(file)
+    conn.Write([]byte("Command executed successfully"))
 
   case "down":
     lg.CleanUp()
-    //conn.Write([]byte("Command executed successfully"))
+    conn.Write([]byte("Command executed successfully"))
     os.Exit(0)
 
   case "update":
     zaplog.Infoln("I am called here")
     loadguardian.UpdateProcess(cmd.Args.File)
+    conn.Write([]byte("Command executed successfully"))
 
   default:
     zaplog.Warnf("Unknown command:", commandName)

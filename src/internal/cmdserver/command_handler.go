@@ -91,13 +91,14 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
         }, 
         ExecuteTime: executeTime,
       }
+      conn.Write([]byte(fmt.Sprintf("Command schedule for: %s", executeTime.Format(time.ANSIC))))
     } else {
       ExecuteCommand(RunnableCommand{
         Name: upCmd.Name,
         Args: CommandArgs{
           File: File,
         }, 
-      })
+      }, conn)
     }
   case "down":
     var downCmd cmdclient.DownCommand
@@ -116,12 +117,13 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
         }, 
         ExecuteTime: executeTime,
       }
+      conn.Write([]byte(fmt.Sprintf("Command schedule for: %s", executeTime.Format("ANSIC"))))
     } else {
       ExecuteCommand(RunnableCommand{
         Name: downCmd.Name,
         Args: CommandArgs{
         }, 
-      })
+      }, conn)
     }
 
   case "update":
@@ -142,13 +144,14 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
         }, 
         ExecuteTime: executeTime,
       }
+      conn.Write([]byte(fmt.Sprintf("Command schedule for: %s", executeTime.Format("ANSIC"))))
     } else {
       ExecuteCommand(RunnableCommand{
         Name: updateCmd.Name,
         Args: CommandArgs{
           File: File,
         }, 
-      })
+      }, conn)
     }
   }
 
