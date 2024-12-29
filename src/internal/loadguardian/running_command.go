@@ -15,7 +15,7 @@ import (
 var zaplog = zap.L().Sugar()
 var logChannel = make(chan servicemanager.LogMessage)
 
-func StartProcress(file string) LoadGuardian {
+func StartProcress(file string){
   lg := GetLoadGuardian()
   c, err := config.ParseYAML(file)
   if err != nil {
@@ -42,7 +42,6 @@ func StartProcress(file string) LoadGuardian {
       }(container)
     }
   }
-  return *lg
 }
 
 func UpdateProcess(file string) error {

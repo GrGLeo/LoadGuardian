@@ -25,6 +25,5 @@ func init() {
 }
 
 func main() {
-  zaplog.Infoln("Starting LoadGuardian process")
   command.Execute()
 }

@@ -5,9 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/cmdclient"
@@ -19,36 +16,8 @@ const socketPath = "/tmp/loadguardian.sock"
 
 
 func Up(file string) {
-  // Setting up socket to listen for upcoming command
-  os.Remove(socketPath)
-  listener, err := net.Listen("unix", socketPath)
-  if err != nil {
-    fmt.Println("Failed to open socket. Will not listen for upcoming command")
-  }
-  defer listener.Close()
-  defer os.Remove(socketPath)
-
   // Start process
-  lg := loadguardian.StartProcress(file)
-
-  // Handle socket command
-  go func() {
-    for {
-      conn, err := listener.Accept()
-      if err != nil  {
-        fmt.Println("Error accepting connection")
-        continue
-      }
-      go HandleSocketCommand(conn, &lg)
-    }
-  }()
-
-  // Handle keyboard shutdown
-  signalChannel := make(chan os.Signal, 1)
-  signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
-  <-signalChannel
-  // Clean up
-  lg.CleanUp()
+  loadguardian.StartProcress(file)
 }
 
 func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
@@ -100,6 +69,7 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian) {
         }, 
       }, conn)
     }
+
   case "down":
     var downCmd cmdclient.DownCommand
     if err := json.Unmarshal(data, &downCmd); err != nil {

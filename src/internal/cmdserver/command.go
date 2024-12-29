@@ -49,7 +49,7 @@ func ExecuteCommand(cp CommandProvider, conn net.Conn) {
   switch commandName {
   case "up":
     file := cmd.Args.File
-    Up(file)
+    loadguardian.StartProcress(file) 
     conn.Write([]byte("Command executed successfully"))
 
   case "down":
