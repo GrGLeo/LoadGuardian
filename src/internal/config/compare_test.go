@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/config"
@@ -76,6 +77,7 @@ func TestCompareConfig(t *testing.T) {
 					"existing-service": {
 						Image: "old-image",
 						Port:  []string{"8080"},
+            NextPort: &atomic.Uint32{},
 					},
 				},
 			},
@@ -84,6 +86,7 @@ func TestCompareConfig(t *testing.T) {
 					"existing-service": {
 						Image: "new-image",
 						Port:  []string{"8080", "9090"},
+            NextPort: &atomic.Uint32{},
 					},
 				},
 			},
@@ -94,6 +97,7 @@ func TestCompareConfig(t *testing.T) {
 					"existing-service": {
 						Image: "new-image",
 						Port:  []string{"8080", "9090"},
+            NextPort: &atomic.Uint32{},
 					},
 				},
 			},
@@ -103,12 +107,12 @@ func TestCompareConfig(t *testing.T) {
 			oldConfig: config.Config{
 				Service: map[string]servicemanager.Service{
 					"service-A": {Image: "image-A"},
-					"service-B": {Image: "image-B"},
+					"service-B": {Image: "image-B", NextPort: &atomic.Uint32{}},
 				},
 			},
 			newConfig: config.Config{
 				Service: map[string]servicemanager.Service{
-					"service-B": {Image: "updated-image-B"},
+					"service-B": {Image: "updated-image-B", NextPort: &atomic.Uint32{}},
 					"service-C": {Image: "image-C"},
 				},
 			},
@@ -120,7 +124,7 @@ func TestCompareConfig(t *testing.T) {
 					"service-A": {Image: "image-A"},
 				},
 				UpdatedService: map[string]servicemanager.Service{
-					"service-B": {Image: "updated-image-B"},
+					"service-B": {Image: "updated-image-B", NextPort: &atomic.Uint32{}},
 				},
 			},
 		},

@@ -122,6 +122,7 @@ func (old *Service) Compare(new *Service) bool {
   if diff := utils.CompareStrings(false, old.Dependencies, new.Dependencies); diff {
     return true
   }
+  // how to handle replicas??
   return false
 }
 

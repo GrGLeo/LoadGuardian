@@ -1,6 +1,7 @@
 package servicemanager_test
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
@@ -11,6 +12,7 @@ func TestPortInitializing(t *testing.T) {
 		service := servicemanager.Service{
 			Image: "hello",
 			Port:  []string{"8080:8080"},
+      NextPort: &atomic.Uint32{},
 		}
 
 		nextPort, err := service.GetPort()
@@ -35,6 +37,7 @@ func TestPortInitializing(t *testing.T) {
 		service := servicemanager.Service{
 			Image:    "hello",
 			Port:     []string{"8080:8080"},
+      NextPort: &atomic.Uint32{},
 		}
     service.NextPort.Store(8080)
 
@@ -61,6 +64,7 @@ func TestPortInitializing(t *testing.T) {
     service := servicemanager.Service{
       Image: "hello",
       Port: []string{"hello:false"},
+      NextPort: &atomic.Uint32{},
     }
     _, err := service.GetPort()
     if err == nil {
