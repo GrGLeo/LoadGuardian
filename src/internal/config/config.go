@@ -22,9 +22,13 @@ type Network struct {
   Driver string `yaml:"driver,omitempty"`
 }
 
+type Volume struct {
+}
+
 type Config struct {
   Service map[string]servicemanager.Service `yaml:"service"`
   Network map[string]Network `yaml:"networks,omitempty"`
+  Volume map[string]Volume `yaml:"volume,omitempty"`
 }
 
 type ServiceProvider interface {

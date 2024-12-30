@@ -9,6 +9,7 @@ import (
 
 	"github.com/GrGLeo/LoadBalancer/src/pkg/utils"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
@@ -53,6 +54,7 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
   if len(s.Network) > 0 {
     hostConfig.NetworkMode = container.NetworkMode(s.Network[0])
   }
+
   if hport != "-1" {
     hostConfig.PortBindings = nat.PortMap{
       nat.Port(hport+"/tcp"): []nat.PortBinding{
@@ -61,6 +63,20 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
           HostPort: hport,
         },
       },
+    }
+  }
+
+  if len(s.Volume) > 0 {
+    for _, vol := range s.Volume {
+      paths := strings.Split(vol, ":")
+      source := paths[0]
+      target := paths[1]
+
+      hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+        Type: mount.TypeBind,
+        Source: source,
+        Target: target,
+      })
     }
   }
 
