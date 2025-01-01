@@ -1,16 +1,16 @@
 service:
-  LogTen:
-    image: deretz/log_ten
-    ports: 
-      - "8080:8080"
-    envs:
-      - $TEN
-
   LogThree:
-    image: deretz/log_three
+    image: deretz/log_ten
     envs:
       - $THREE
     replicas: 2
+
+  LogFile:
+    image: deretz/healthchecks
+    ports:
+      - "8000:8000"
+    volume:
+      - "/home/leo/code/LoadBalancer/log_input.txt:/app/log_input.txt"
 
 networks:
   app-network:
