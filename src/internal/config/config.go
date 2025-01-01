@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
@@ -103,27 +104,34 @@ func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
     fmt.Println("Failed to inspect images. Pulling image for all services")
   }
   Services := sp.GetService(p)
+  wg := sync.WaitGroup{}
   for name, service := range Services {
     // Checking if image need to be pulled
-    value, ok := ImageToPull[service.Image]
-    if !value && ok {
-      fmt.Printf("%s Service %s already pulled\n", greenCheck, name)
-      continue
-    }
-    // Pulling Image
-    s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-    s.Suffix = fmt.Sprintf("Pulling Service %s", name)
-    s.Start()
-    reader, err := cli.ImagePull(context.Background(), service.Image, image.PullOptions{})
-    if err != nil {
+    wg.Add(1)
+    go func() error {
+      defer wg.Done()
+      value, ok := ImageToPull[service.Image]
+      if !value && ok {
+        fmt.Printf("%s Service %s already pulled\n", greenCheck, name)
+        return nil
+      }
+      // Pulling Image
+      s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+      s.Suffix = fmt.Sprintf("Pulling Service %s", name)
+      s.Start()
+      reader, err := cli.ImagePull(context.Background(), service.Image, image.PullOptions{})
+      if err != nil {
+        s.Stop()
+        return err
+      }
+      logger.ReadProgress(reader, func(status string){
+        s.Suffix = fmt.Sprintf(" Pulling Service %s - %s", name, status)
+      })
       s.Stop()
-      return err
-    }
-    logger.ReadProgress(reader, func(status string){
-      s.Suffix = fmt.Sprintf(" Pulling Service %s - %s", name, status)
-    })
-    s.Stop()
+      return nil
+    }()
   }
+  wg.Wait()
   return nil
 }
 
