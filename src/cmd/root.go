@@ -1,6 +1,7 @@
 package command
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -13,8 +14,23 @@ import (
 )
 
 
-const socketPath = "/tmp/loadguardian.sock"
+const (
+  socketPath = "/tmp/loadguardian.sock"
+  text = `
+888                            888  .d8888b.                                888 d8b                   
+888                            888 d88P  Y88b                               888 Y8P                   
+888                            888 888    888                               888                       
+888      .d88b.   8888b.   .d88888 888        888  888  8888b.  888d888 .d88888 888  8888b.  88888b.  
+888     d88""88b     "88b d88" 888 888  88888 888  888     "88b 888P"  d88" 888 888     "88b 888 "88b 
+888     888  888 .d888888 888  888 888    888 888  888 .d888888 888    888  888 888 .d888888 888  888 
+888     Y88..88P 888  888 Y88b 888 Y88b  d88P Y88b 888 888  888 888    Y88b 888 888 888  888 888  888 
+88888888 "Y88P"  "Y888888  "Y88888  "Y8888P88  "Y88888 "Y888888 888     "Y88888 888 "Y888888 888  888 
+%s
+`
+)
 
+
+var version = os.Getenv("VERSION")
 var zaplog = zap.L().Sugar()
 var rootCmd = &cobra.Command{
   Use:   "loadguardian",
@@ -23,6 +39,9 @@ var rootCmd = &cobra.Command{
                 love by spf13 and friends in Go.
                 Complete documentation is available at https://gohugo.io/documentation/`,
   Run: func(cmd *cobra.Command, args []string) {
+    fmt.Printf(text, version)
+    fmt.Printf("v%s\n", version)
+    fmt.Println("Ready and listening for upcoming command.")
     // Setting up bare loadguardian
     lg := loadguardian.GetLoadGuardian()
     // Setting up socket to listen for upcoming command

@@ -2,6 +2,10 @@ package utils
 
 import "errors"
 
+var (
+  EmptyStackError = errors.New("Empty stack")
+)
+
 type Stack struct {
   items []interface{}
 }
@@ -19,7 +23,7 @@ func (s *Stack) Peek() (interface{}, error) {
   if n > 0 {
     return s.items[n-1], nil
   } else {
-    return nil, errors.New("Empty stack")
+    return nil, EmptyStackError
   }
 }
 
@@ -30,10 +34,9 @@ func (s *Stack) Pop() (interface{}, error) {
     s.items = s.items[:n-1]
     return last_item, nil
   } else {
-    return nil, errors.New("Can't pop on an empty stack")
+    return nil, EmptyStackError
   }
 }
-
 
 func (s *Stack) IsEmpty() bool {
   return len(s.items) == 0
