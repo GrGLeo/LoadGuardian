@@ -1,4 +1,5 @@
 # LoadGuardian Service
+![Logo](doc/logo.webp)
 
 LoadGuardian is a load balancer and monitoring service that distributes traffic across backend services using various algorithms like `roundrobin`, `random`, and `leastconnection`. This guide explains how to set up and use the LoadGuardian service with Docker.
 

@@ -1,0 +1,14 @@
+service:
+  LogTen:
+    image: deretz/log_ten
+    network: 
+      - app-network
+    ports: 
+      - "8080:8080"
+    envs:
+      - $TEN
+    replicas: 3
+
+networks:
+  app-network:
+    driver: bridge

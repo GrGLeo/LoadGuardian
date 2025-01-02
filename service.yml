@@ -1,0 +1,10 @@
+service:
+  LogTen:
+    image: deretz/log_ten
+    envs:
+      - $TEN
+    replicas: 2
+
+networks:
+  app-network:
+    driver: bridge
