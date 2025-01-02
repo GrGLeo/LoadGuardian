@@ -9,7 +9,6 @@ import (
 	"time"
 
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
-	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
 	"github.com/briandowns/spinner"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
@@ -119,14 +118,11 @@ func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
       s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
       s.Suffix = fmt.Sprintf("Pulling Service %s", name)
       s.Start()
-      reader, err := cli.ImagePull(context.Background(), service.Image, image.PullOptions{})
+      _, err := cli.ImagePull(context.Background(), service.Image, image.PullOptions{})
       if err != nil {
         s.Stop()
         return err
       }
-      logger.ReadProgress(reader, func(status string){
-        s.Suffix = fmt.Sprintf(" Pulling Service %s - %s", name, status)
-      })
       s.Stop()
       return nil
     }()

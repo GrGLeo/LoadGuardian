@@ -2,7 +2,7 @@ service:
   LogThree:
     image: deretz/log_ten
     envs:
-      - $THREE
+      - $TEN
     replicas: 2
 
   LogFile:
