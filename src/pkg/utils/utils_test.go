@@ -33,3 +33,65 @@ func TestCompareStrings(t *testing.T) {
 		})
 	}
 }
+
+
+func TestStack(t *testing.T) {
+	// Initialize a new stack
+	stack := &utils.Stack{}
+
+	t.Run("Push and Size", func(t *testing.T) {
+		stack.Push(10)
+		stack.Push(20)
+		stack.Push(30)
+		if got := stack.Size(); got != 3 {
+			t.Errorf("expected size 3, got %d", got)
+		}
+	})
+
+	t.Run("Peek", func(t *testing.T) {
+		item, err := stack.Peek()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if item != 30 {
+			t.Errorf("expected top item 30, got %v", item)
+		}
+	})
+
+	t.Run("Pop", func(t *testing.T) {
+		item, err := stack.Pop()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if item != 30 {
+			t.Errorf("expected popped item 30, got %v", item)
+		}
+		if got := stack.Size(); got != 2 {
+			t.Errorf("expected size 2 after pop, got %d", got)
+		}
+	})
+
+	t.Run("IsEmpty", func(t *testing.T) {
+		if got := stack.IsEmpty(); got {
+			t.Errorf("expected stack not to be empty")
+		}
+		stack.Pop()
+		stack.Pop()
+		if got := stack.IsEmpty(); !got {
+			t.Errorf("expected stack to be empty")
+		}
+	})
+
+	t.Run("EmptyStackError", func(t *testing.T) {
+		_, err := stack.Pop()
+		if err != utils.EmptyStackError {
+			t.Errorf("expected EmptyStackError, got %v", err)
+		}
+
+		_, err = stack.Peek()
+		if err != utils.EmptyStackError {
+			t.Errorf("expected EmptyStackError, got %v", err)
+		}
+	})
+}
+
