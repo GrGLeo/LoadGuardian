@@ -7,23 +7,7 @@ service:
       - "8080:8080"
     envs:
       - $TEN
-
-  LogThree:
-    image: deretz/log_three
-
-  LogFile:
-    image: deretz/healthchecks
-    ports:
-      - "8000:8000"
-    volume:
-      - "text_log.txt:/app/log_input.txt"
-
-  LogFive:
-    image: deretz/log_five
-    network: 
-      - app-network
-    envs:
-      - $FIVE
+    replicas: 3
 
 networks:
   app-network:
