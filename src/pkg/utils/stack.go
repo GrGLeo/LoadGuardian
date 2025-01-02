@@ -6,38 +6,41 @@ var (
   EmptyStackError = errors.New("Empty stack")
 )
 
-type Stack struct {
-  items []interface{}
+type Stack[T any] struct {
+  items []T
 }
 
-func (s *Stack) Push(item interface{}) {
+func (s *Stack[T]) Push(item T) {
   s.items = append(s.items, item)
 }
 
-func (s *Stack) Size() int {
+func (s *Stack[T]) Size() int {
   return len(s.items)
 }
 
-func (s *Stack) Peek() (interface{}, error) {
+func (s *Stack[T]) Peek() (T, error) {
   n := len(s.items)
   if n > 0 {
     return s.items[n-1], nil
   } else {
-    return nil, EmptyStackError
+    var zeroValue T
+    return zeroValue, EmptyStackError
   }
 }
 
-func (s *Stack) Pop() (interface{}, error) {
+func (s *Stack[T]) Pop() (T, error) {
   n := len(s.items)
   if n > 0 {
     last_item := s.items[n-1]
     s.items = s.items[:n-1]
     return last_item, nil
   } else {
-    return nil, EmptyStackError
+
+    var zeroValue T
+    return zeroValue, EmptyStackError
   }
 }
 
-func (s *Stack) IsEmpty() bool {
+func (s *Stack[T]) IsEmpty() bool {
   return len(s.items) == 0
 }

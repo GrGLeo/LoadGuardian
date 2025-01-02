@@ -17,6 +17,12 @@ type Container struct {
   Port int
 }
 
+type ContainerPair struct {
+  PastService Service
+  Past Container
+  New Container
+}
+
 type LogMessage struct {
   ContainerName string
   Message string

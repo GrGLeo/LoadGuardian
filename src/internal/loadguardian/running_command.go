@@ -9,6 +9,7 @@ import (
 	"github.com/GrGLeo/LoadBalancer/src/internal/config"
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 	"github.com/GrGLeo/LoadBalancer/src/pkg/logger"
+	"github.com/GrGLeo/LoadBalancer/src/pkg/utils"
 	"go.uber.org/zap"
 )
 
@@ -100,8 +101,9 @@ func UpdateProcess(file string) error {
   }
 
   zap.L().Sugar().Info("Updating services")
+  var rollbackPairs = utils.Stack[utils.Stack[servicemanager.ContainerPair]]{}
   for name, service := range cd.UpdatedService {
-    var rollbackPairs [][2]*servicemanager.Container
+    currentIteration :=  utils.Stack[servicemanager.ContainerPair]{}
     matchingRunningService, ok := lg.RunningServices[name]
     if !ok {
       fmt.Println("Failed to match updated Services with past one")
@@ -151,12 +153,31 @@ func UpdateProcess(file string) error {
         pastContainer.Remove(lg.Client)
         matchingRunningService[i] = container
         // Store the pair in case or rollback
-        rollbackPairs = append(rollbackPairs, [2]*servicemanager.Container{&pastContainer, &container})
+        currentIteration.Push(servicemanager.ContainerPair{
+          PastService: service,
+          Past: pastContainer,
+          New: container,
+        })
       } else {
+        // If not healthy, we revert back the full update.
+        // idealy the all config should be revert cause new or removed
+        // container might be needed by the old image
         // Stop and remove the current iteration
         timeout := 0
         container.Stop(lg.Client, &timeout)
         container.Remove(lg.Client)
+        for !rollbackPairs.IsEmpty() {
+          // Rollback services by services in reverse order
+          pastIteration, _ := rollbackPairs.Pop()
+          for !pastIteration.IsEmpty() {
+            // Rollback container by container in reverse order
+            pastIterationContainer, _ := pastIteration.Pop()
+            pastIterationContainer.PastService.Create(lg.Client, 0)
+            pastIterationContainer.Past.Start(lg.Client)
+            pastIterationContainer.New.Stop(lg.Client, &timeout)
+            pastIterationContainer.New.Remove(lg.Client)
+          }
+        }
       }
     }
   }
