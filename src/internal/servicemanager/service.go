@@ -6,12 +6,14 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/GrGLeo/LoadBalancer/src/pkg/utils"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 )
 
 type Service struct {
@@ -21,12 +23,25 @@ type Service struct {
   Port []string `yaml:"ports,omitempty"`
   Envs []string `yaml:"envs,omitempty"`
   Replicas int `yaml:"replicas,omitempty"`
-  HealthCheck bool `yaml:"healthcheck,omitempty"`
+  HealthCheck HealthcheckConfig `yaml:"healthcheck,omitempty"`
   Dependencies []string `yaml:"dependencies,omitempty"`
   NextPort *atomic.Uint32 `yaml:"-"`
 }
 
-func (s *Service) Create(cli *client.Client, n int) (Container, error) {
+type HealthcheckConfig struct {
+  Test []string `yaml:"test,omitempty"`
+	// Zero means to inherit. Durations are expressed as integer nanoseconds.
+	Interval      time.Duration `yaml:"interval,omitempty"` // Interval is the time to wait between checks.
+	Timeout       time.Duration `yaml:"timeout,omitempty"` // Timeout is the time to wait before considering the check to have hung.
+	StartPeriod   time.Duration `yaml:"startperiod,omitempty"` // The start period for the container to initialize before the retries starts to count down.
+	StartInterval time.Duration `yaml:"startinterval,omitempty"` // The interval to attempt healthchecks at during the start period
+
+	// Retries is the number of consecutive failures needed to consider a container as unhealthy.
+	// Zero means inherit.
+	Retries int `yaml:"retries,omitempty"`
+}
+
+func (s *Service) Create(cli *client.Client) (Container, error) {
   ports := []int{-1,-1}
   var err error
   if len(s.Port) > 0 {
@@ -49,6 +64,10 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
       nat.Port(cport+"/tcp"): struct{}{},
     }
   }
+
+  // If a healtcheck in implemented we configure the container with it
+  // otherwise we add a base HealthCheck
+  config.Healthcheck = s.CreateHealthCheck()
  
   hostConfig := &container.HostConfig{}
   if len(s.Network) > 0 {
@@ -94,7 +113,7 @@ func (s *Service) Create(cli *client.Client, n int) (Container, error) {
     fmt.Println("Failed to create container: ", name, err.Error())
     return Container{}, err
   }
-  name = name + "-" + strconv.Itoa(n)
+  name = name + "-" + utils.GenerateName(5) 
   err = cli.ContainerRename(context.Background(), ContainerID, name)
   if err != nil {
     fmt.Println(err.Error())
@@ -138,7 +157,29 @@ func (old *Service) Compare(new *Service) bool {
   if diff := utils.CompareStrings(false, old.Dependencies, new.Dependencies); diff {
     return true
   }
-  // how to handle replicas??
+  // TODO: how to handle replicas??
   return false
 }
 
+
+func (s *Service) CreateHealthCheck() *dockerspec.HealthcheckConfig {
+    hcConfig := dockerspec.HealthcheckConfig{}
+    if s.HealthCheck.Test != nil {
+      hcConfig.Test = s.HealthCheck.Test
+      hcConfig.Interval = s.HealthCheck.Interval * time.Second
+      hcConfig.Timeout = s.HealthCheck.Timeout * time.Second
+      hcConfig.Retries = s.HealthCheck.Retries
+    } else {
+      hcConfig.Test = []string{"CMD", "true"}
+      hcConfig.Interval = 30  * time.Second 
+      hcConfig.Timeout = 10 * time.Second 
+      hcConfig.Retries =  3
+    }
+    if s.HealthCheck.StartInterval != 0 {
+      hcConfig.StartInterval = s.HealthCheck.StartInterval
+    }
+    if s.HealthCheck.StartPeriod != 0 {
+      hcConfig.StartPeriod = s.HealthCheck.StartPeriod
+    }
+    return &hcConfig
+}

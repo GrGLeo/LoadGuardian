@@ -1,6 +1,12 @@
 package utils
 
-import "sort"
+import (
+	"math/rand"
+	"sort"
+)
+
+
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func CompareStrings(sorted bool, a, b []string) bool {
   if sorted {
@@ -16,4 +22,13 @@ func CompareStrings(sorted bool, a, b []string) bool {
     }
   }
   return false
+}
+
+
+func GenerateName(length int) string {
+  result := make([]byte, length)
+  for i := 0; i < length; i++ {
+    result[i] = charset[rand.Intn(len(charset))]
+  }
+  return string(result)
 }

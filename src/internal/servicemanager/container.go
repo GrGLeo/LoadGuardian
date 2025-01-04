@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"go.uber.org/zap"
 )
 
 type Container struct {
@@ -17,9 +19,8 @@ type Container struct {
   Port int
 }
 
-type ContainerPair struct {
+type ContainerRollbackConfig struct {
   PastService Service
-  Past Container
   New Container
 }
 
@@ -120,17 +121,51 @@ func (c *Container) RunningCheck(cli *client.Client) (bool, error) {
   return false, nil
 }
 
-func (c *Container) HealthChecker(cli *client.Client) (bool, error) {
+func (c *Container) HealthChecker(cli *client.Client) (string, error) {
   inspect, err := cli.ContainerInspect(context.Background(), c.ID)
   if err != nil {
-    return false, err
+    return "", err
+  }
+  if inspect.State.Health == nil {
+    return "", ErrContainerNotStarted
   }
   health := inspect.State.Health.Status
-  if health == "Healthy" {
-    return true, nil
-  } else {
-    return false, nil
-  }
+  return health, nil
+}
+
+func CheckContainerHealth(cli *client.Client, container Container, logger *zap.SugaredLogger) bool {
+  retries := 0
+  maxRetries := 5
+  delay := 5 * time.Second
+
+  for retries < maxRetries {
+    status, err := container.HealthChecker(cli)
+    if err != nil && err == ErrContainerNotStarted {
+      logger.Infow("Container health status is not available yet", "container", container.Name)
+			time.Sleep(delay)
+			delay *= 2
+			retries++
+      continue
+    } else if err != nil {
+      logger.Errorw("Failed to inspect container", "container", container.Name, "error", err)
+			return false
+    }
+    switch status {
+		case "healthy":
+			logger.Infow("Container is healthy", "container", container.Name)
+			return true
+		case "starting":
+			logger.Infow("Container is starting", "container", container.Name)
+		default:
+			logger.Warnw("Container is unhealthy, retrying...", "container", container.Name, "status", status)
+		}
+
+		time.Sleep(delay)
+		delay *= 2
+		retries++
+	}
+  logger.Warnw("Container did not become healthy within the retry limit", "container", container.Name)
+	return false
 }
 
 

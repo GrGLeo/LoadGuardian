@@ -40,6 +40,7 @@ func (c *Config) GetService(p bool) map[string]servicemanager.Service {
   return c.Service
 }
 
+// CreateNetworks ensures the necessary Docker networks are created by checking their existence and creating them if they do not already exist.
 func (c *Config) CreateNetworks(cli *client.Client) error {
   networks, err := cli.NetworkList(context.Background(), network.ListOptions{})
   if err != nil {
@@ -71,6 +72,7 @@ func (c *Config) CreateNetworks(cli *client.Client) error {
   return nil
 }
 
+// CheckServices identifies which services need their Docker images pulled by comparing existing images with the required service images.
 func CheckServices(sp ServiceProvider, cli *client.Client) (map[string]bool, error) {
   // Retrieve existing image
   resp, err := cli.ImageList(context.Background(), image.ListOptions{})
@@ -97,6 +99,7 @@ func CheckServices(sp ServiceProvider, cli *client.Client) (map[string]bool, err
 }
 
 
+// PullServices pulls Docker images for the given services if they are not already available locally.
 func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
   ImageToPull, err:= CheckServices(sp, cli)
   if err != nil {
@@ -131,25 +134,26 @@ func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
   return nil
 }
 
+// CreateAllService creates and starts the specified number of replicas for each service using the provided Docker client.
 func CreateAllService(sp ServiceProvider, p bool, cli *client.Client) (map[string][]servicemanager.Container, error) {
   runningCont := make(map[string][]servicemanager.Container)
   Services := sp.GetService(p)
-  
+
   for name, service := range Services {
     for i := 1; i <= service.Replicas; i++ {
       zap.L().Sugar().Infof("creating service: %s replicas: %d", name, i)
-      container, err := service.Create(cli, i)
+      container, err := service.Create(cli)
       if err != nil {
         return runningCont, err
       }
       runningCont[name] = append(runningCont[name], container)
     }
   }
-  zap.L().Sugar().Infoln(runningCont)
   return runningCont, nil
 }
 
 
+// OrderService sorts the services based on their dependencies, detecting cyclic dependencies and ensuring a correct initialization order.
 func OrderService(services map[string]servicemanager.Service) (map[string]servicemanager.Service, error) {
   visited := make(map[string]bool)
   stack := []string{}

@@ -1,14 +1,22 @@
 service:
   LogTen:
     image: deretz/log_ten
-    network: 
-      - app-network
-    ports: 
-      - "8080:8080"
+    envs:
+      - $THREE
+    replicas: 2
+
+  LogFile:
+    image: deretz/healthchecks
+    ports:
+      - "8000:8000"
     envs:
       - $TEN
-    replicas: 3
-
-networks:
-  app-network:
-    driver: bridge
+    volume:
+      - "/home/leo/code/LoadBalancer/log_input.txt:/app/log_input.txt"
+    healthcheck:
+      test:
+        - "CMD"
+        - "false"
+      interval: 30
+      timeout: 10
+      retries: 3
