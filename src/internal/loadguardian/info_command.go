@@ -32,6 +32,9 @@ func InfoProcess() (string, error) {
     servResp.ServiceName = name
     for _, cont  := range service {
       var contResp ContainerResponse
+      resp, err := lg.Client.ContainerInspect(context.Background(), cont.ID)
+      health := resp.State.Health.Status
+      contResp.Health = health
       contResp.Name = cont.Name
       stats, err := lg.Client.ContainerStatsOneShot(context.Background(), cont.ID)
       if err != nil {
