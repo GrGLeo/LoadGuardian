@@ -90,3 +90,18 @@ func TestUpdateBaseLength(t *testing.T) {
     }
   })
 }
+
+func TestGenerateTable(t *testing.T) {
+  var rows = [][]string{}
+  rows = append(rows, []string{"Service", "Container", "Health", "CPU", "Memory"})
+  rows = append(rows, []string{"LogFile", "healthchecks-yZqMw", "unhealthy", "0.00 %", "0.06 MB"})
+  rows = append(rows, []string{"LogTen", "log_ten-WJwjC", "healthy", "0.00 %", "0.02 MB"})
+  rows = append(rows, []string{"", "log_ten-mnvaZ", "healthy", "0.00 %", "0.02 MB"})
+  rows = append(rows, []string{"", "log_ten-LvQZr", "healthy", "0.00 %", "0.02 MB"})
+  baseLength := []int{7, 18, 9, 6, 7}
+  table := utils.GenerateTable(rows, baseLength)
+  expected := "----------------------------------------------------------\n|Service |Container          |Health    |CPU    |Memory  |\n----------------------------------------------------------\n|LogFile |healthchecks-yZqMw |unhealthy |0.00 % |0.06 MB |\n----------------------------------------------------------\n|LogTen  |log_ten-WJwjC      |healthy   |0.00 % |0.02 MB |\n----------------------------------------------------------\n|        |log_ten-mnvaZ      |healthy   |0.00 % |0.02 MB |\n----------------------------------------------------------\n|        |log_ten-LvQZr      |healthy   |0.00 % |0.02 MB |\n----------------------------------------------------------\n"
+  if table != expected {
+    t.Errorf("\nexpected:\n %s\n got\n %s", expected, table)
+  }
+}

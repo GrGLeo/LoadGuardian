@@ -6,14 +6,24 @@ import (
 	"strings"
 )
 
-
-func GenerateInterRow(length int) string {
-  row := ""
-  row += strings.Repeat("-", length - 1)
-  row += "\n"
-  return row
+func GenerateTable(rows [][]string, baseLength []int) string {
+  var table string
+  var tableLength int
+  for i := range rows {
+    row, _ := GenerateRow(rows[i], baseLength)
+    // Write header
+    table += row
+    // Write interrow for header
+    if i == 0 {
+      tableLength = len(row)
+    }
+    interRow := GenerateInterRow(tableLength)
+    table += interRow
+  }
+  top := GenerateInterRow(tableLength)
+  table = top + table
+  return table
 }
-
 
 func GenerateRow(row []string, length []int) (string, error) {
   if len(row) != len(length) {
@@ -30,6 +40,14 @@ func GenerateRow(row []string, length []int) (string, error) {
   }
   formattedRow += "\n"
   return formattedRow, nil
+}
+
+
+func GenerateInterRow(length int) string {
+  row := ""
+  row += strings.Repeat("-", length - 1)
+  row += "\n"
+  return row
 }
 
 

@@ -105,20 +105,6 @@ func GenerateTable(resp InfoResponse) string {
       rows = append(rows, row)
     }
   }
-  var table string
-  var tableLength int
-  for i := range rows {
-    row, _ := utils.GenerateRow(rows[i], baseLength)
-    // Write header
-    table += row
-    // Write interrow for header
-    if i == 0 {
-      tableLength = len(row)
-    }
-    interRow := utils.GenerateInterRow(tableLength)
-    table += interRow
-  }
-  top := utils.GenerateInterRow(tableLength)
-  table = top + table
+  table := utils.GenerateTable(rows, baseLength)
   return table
 }
