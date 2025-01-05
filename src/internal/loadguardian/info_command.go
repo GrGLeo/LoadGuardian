@@ -59,17 +59,21 @@ func InfoProcess() (string, error) {
     }
     resp.Response = append(resp.Response, servResp)
   }
-  encodedResp, err := json.Marshal(resp)
+  // what should i do with the json stats?
+  _, err := json.Marshal(resp)
   if err != nil {
     lg.Logger.Errorw("Failed to marshal response", "error", err.Error())
   }
-  return string(encodedResp), nil
+  table := GenerateTable(resp)
+  return table, nil
 }
 
 
 func GenerateTable(resp InfoResponse) string {
   header := []string{"Service", "Container", "Health", "CPU", "Memory"}
   baseLength := utils.GetBaseLength(header)
+  rows := [][]string{}
+  rows = append(rows, header)
   for _, service := range resp.Response {
     for j, container := range service.Container {
       var row []string
@@ -95,7 +99,23 @@ func GenerateTable(resp InfoResponse) string {
       if err != nil {
         return "Failed to prep table"
       }
+      rows = append(rows, row)
     }
   }
-  return ""
+  var table string
+  var tableLength int
+  for i := range rows {
+    row, _ := utils.GenerateRow(rows[i], baseLength)
+    // Write header
+    table += row
+    // Write interrow for header
+    if i == 0 {
+      tableLength = len(row)
+    }
+    interRow := utils.GenerateInterRow(tableLength)
+    table += interRow
+  }
+  top := utils.GenerateInterRow(tableLength)
+  table = top + table
+  return table
 }

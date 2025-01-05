@@ -9,7 +9,8 @@ import (
 
 func GenerateInterRow(length int) string {
   row := ""
-  row += strings.Repeat("-", length)
+  row += strings.Repeat("-", length - 1)
+  row += "\n"
   return row
 }
 
@@ -19,7 +20,7 @@ func GenerateRow(row []string, length []int) (string, error) {
     return "", errors.New("Lists do not contain the same number of items")
   }
   formattedRow := "|"
-  pad := "|"
+  pad := " |"
   for i := 0; i < len(row); i++ {
     str := row[i]
     strLength := length[i]

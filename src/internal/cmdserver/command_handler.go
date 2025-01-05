@@ -166,6 +166,8 @@ func SendCommand(command string) error {
   if err != nil {
     return errors.New("Failed to read response")
   }
-  fmt.Println("Response from guardian:", string(buff[:n]))
+  resp := string(buff[:n])
+  fmt.Println("Response from guardian:")
+  fmt.Print(resp)
   return nil
 }

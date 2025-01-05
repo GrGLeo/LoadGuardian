@@ -19,7 +19,7 @@ func TestLengthPrep(t *testing.T) {
 func TestGenerateRow(t *testing.T) {
   raw := []string{"a", "b", "c"}
   rawlen := []int{3, 3, 3}
-  expected := "|a  |b  |c  |\n"
+  expected := "|a   |b   |c   |\n"
 
   t.Run("valid input", func(t *testing.T) {
     got, err := utils.GenerateRow(raw, rawlen)
