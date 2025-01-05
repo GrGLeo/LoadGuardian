@@ -74,7 +74,7 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian, scheduleC
       zaplog.Errorf("Failed to parse up command: %s\n", err.Error())
       return
     }
-    zaplog.Infof("Processing UpCommand: %+v\n", downCmd)
+    lg.Logger.Infof("Processing UpCommand: %+v\n", downCmd)
 
     scheduleDelay := downCmd.Schedule
     if downCmd.Schedule > 0 {
@@ -125,43 +125,22 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian, scheduleC
       })
       conn.Write([]byte("Command executed successfully"))
     }
+
+  case "info":
+    // since info command only has one field Name we dont need to unmarshal the rest
+    resp, _ := ExecuteCommand(RunnableCommand{
+      Name: "info",
+    })
+    conn.Write([]byte(resp))
   }
-
 }
-//  command := ""
-//
-//  parsedCommand := strings.Split(command, "|")
-//  command = parsedCommand[0]
-//  switch command {
-//  case "down":
-//    lg.CleanUp()
-//    conn.Write([]byte("Command executed successfully"))
-//    os.Exit(0)
-//
-//  case "update":
-//    if len(parsedCommand) < 2 {
-//      msg := "Incomplete update command"
-//      fmt.Println(msg)
-//      conn.Write([]byte(msg))
-//    }
-//    file := parsedCommand[1]
-//    fmt.Println(file)
-//    loadguardian.UpdateProcess(file)
-//    
-//    conn.Write([]byte("Command executed successfully"))
-//
-//  default:
-//    fmt.Fprintln(conn, "Unknown command:", command)
-//    conn.Write([]byte("Unknown command"))
-//  }
-//}
 
-func Down() error {
+func Dowk() error {
   err := SendCommand("down")
   return err
 }
 
-func Update(file string) error {
+func Updahe(file string) error {
   command := fmt.Sprintf("update|%s", file)
   err := SendCommand(command)
   return err
@@ -187,6 +166,8 @@ func SendCommand(command string) error {
   if err != nil {
     return errors.New("Failed to read response")
   }
-  fmt.Println("Response from guardian:", string(buff[:n]))
+  resp := string(buff[:n])
+  fmt.Println("Response from guardian:")
+  fmt.Print(resp)
   return nil
 }

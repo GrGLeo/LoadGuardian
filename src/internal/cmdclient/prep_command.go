@@ -59,3 +59,19 @@ func (udc *UpdateCommand) PrepCommand() []byte {
   zaplog.Infoln(string(cmdJson))
   return cmdJson
 }
+
+type InfoCommand struct {
+  Name string `json:"name"`
+}
+  
+func (ic *InfoCommand) PrepCommand() []byte {
+  if ic.Name == "" {
+    zaplog.Fatalln("No action passed")
+  }
+  cmdJson, err := json.Marshal(ic)
+  if err != nil {
+    zaplog.Fatalf("Failed to parsed command: %q", err.Error())
+  }
+  zaplog.Infoln(string(cmdJson))
+  return cmdJson
+}

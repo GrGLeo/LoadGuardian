@@ -40,7 +40,7 @@ func (sc ScheduleCommand) GetCommand() RunnableCommand {
   }
 }
 
-func ExecuteCommand(cp CommandProvider) {
+func ExecuteCommand(cp CommandProvider) (string, error) {
   lg := loadguardian.GetLoadGuardian()
   cmd := cp.GetCommand()
   commandName := cmd.Name
@@ -48,18 +48,37 @@ func ExecuteCommand(cp CommandProvider) {
   switch commandName {
   case "up":
     file := cmd.Args.File
-    loadguardian.StartProcress(file) 
+    resp, err := loadguardian.StartProcress(file) 
+    if err != nil {
+      return "", err
+    }
+    return resp, nil
 
   case "down":
     lg.CleanUp()
     os.Exit(0)
 
   case "update":
-    zaplog.Infoln("I am called here")
-    loadguardian.UpdateProcess(cmd.Args.File)
+    resp, err := loadguardian.UpdateProcess(cmd.Args.File)
+    if err != nil {
+      return "", err
+    }
+    return resp, nil
+
+
+  case "info":
+    lg.Logger.Infoln("Gathering services information")
+    resp, err := loadguardian.InfoProcess()
+    if err != nil {
+      return "", err
+    }
+    return resp, nil
+
 
   default:
-    zaplog.Warnf("Unknown command:", commandName)
+    lg.Logger.Warnf("Unknown command:", commandName)
+    return "Unknown command", nil
   }
+  return "", nil
 }
 
