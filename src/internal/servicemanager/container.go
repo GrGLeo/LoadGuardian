@@ -20,8 +20,10 @@ type Container struct {
 }
 
 type ContainerRollbackConfig struct {
-  PastService Service
-  New Container
+  ServiceName string // Service name for the running services key
+  Index int // index of the container in the running list
+  PastService Service // store the past service config
+  New Container // new container info
 }
 
 type LogMessage struct {
@@ -96,6 +98,7 @@ func (c *Container) Stop(cli *client.Client, logger *zap.SugaredLogger, timeout 
     logger.Errorw("Error while stopping container", "container", c.Name)
     return err
   }
+  logger.Infow("Container stopped", "container", c.Name)
   return nil
 }
 
@@ -167,5 +170,3 @@ func CheckContainerHealth(cli *client.Client, container Container, logger *zap.S
   logger.Warnw("Container did not become healthy within the retry limit", "container", container.Name)
 	return false
 }
-
-

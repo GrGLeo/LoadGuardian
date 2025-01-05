@@ -125,8 +125,9 @@ func UpdateProcess(file string) error {
         }
       }(container)
 
-      // Implement health inspection
+      // Replace old container by the new one in running services
       pastContainer := matchingRunningService[i]
+      // Implement health inspection
       healthy := servicemanager.CheckContainerHealth(lg.Client, container, lg.Logger)
 
       if healthy {
@@ -136,6 +137,8 @@ func UpdateProcess(file string) error {
         matchingRunningService[i] = container
         // Store the pair in case or rollback
         currentIteration.Push(servicemanager.ContainerRollbackConfig{
+          ServiceName: name,
+          Index: i,
           PastService: service,
           New: container,
         })
@@ -147,20 +150,20 @@ func UpdateProcess(file string) error {
         timeout := 0
         container.Stop(lg.Client, lg.Logger, &timeout)
         container.Remove(lg.Client)
+        lg.Logger.Errorw("Container unhealthy rolling back to previous config")
         for !rollbackPairs.IsEmpty() {
-          lg.Logger.Infoln("Rolling Back...")
           // Rollback services by services in reverse order
           pastIteration, _ := rollbackPairs.Pop()
           for !pastIteration.IsEmpty() {
             // Rollback container by container in reverse order
             pastIterationContainer, _ := pastIteration.Pop()
-            lg.Logger.Infoln("Rolling back Container: ", pastIterationContainer.PastService.Image)
+            lg.Logger.Infow("Rolling back Container", "container", pastIterationContainer.New.Name)
             cont, _ := pastIterationContainer.PastService.Create(lg.Client)
             cont.Start(lg.Client)
             pastIterationContainer.New.Stop(lg.Client, lg.Logger, &timeout)
             pastIterationContainer.New.Remove(lg.Client)
-            serviceName := pastIterationContainer.PastService.Image
-            lg.RunningServices[serviceName] = append(lg.RunningServices[serviceName], cont)
+            // We switch back the service to its index in the running service
+            lg.RunningServices[pastIterationContainer.ServiceName][pastIterationContainer.Index] = cont
           }
         }
         return nil
