@@ -14,12 +14,11 @@ import (
 var zaplog = zap.L().Sugar()
 var logChannel = make(chan servicemanager.LogMessage)
 
-func StartProcress(file string){
+func StartProcress(file string) (string, error) {
   lg := GetLoadGuardian()
   c, err := config.ParseYAML(file)
   if err != nil {
-    fmt.Println(err)
-    zaplog.Fatalln(err.Error())
+    lg.Logger.Fatalln(err.Error())
   }
   lg.Config = c
 
@@ -42,15 +41,16 @@ func StartProcress(file string){
       }(container)
     }
   }
+  return "Process started successfully", nil
 }
 
-func UpdateProcess(file string) error {
+func UpdateProcess(file string) (string, error) {
   lg := GetLoadGuardian()
   lg.Logger.Infoln("Parsing configuration")
   newConfig, err := config.ParseYAML(file)
   if err != nil {
   lg.Logger.Errorln("Error while parsing new configuration")
-    return errors.New("Invalid file") 
+    return "", errors.New("Invalid file") 
   }
   cd, err := lg.Config.CompareConfig(newConfig)
 
@@ -98,7 +98,7 @@ func UpdateProcess(file string) error {
   err = config.PullServices(&cd, false, lg.Client, lg.Logger)
   if err != nil {
     lg.Logger.Errorln("Failed to pull updated services. Keeping old version running")
-    return nil
+    return "", errors.New(fmt.Sprintf("Failed to plull services, error: %q", err.Error()))
   }
 
   lg.Logger.Infoln("Updating services")
@@ -166,14 +166,10 @@ func UpdateProcess(file string) error {
             lg.RunningServices[pastIterationContainer.ServiceName][pastIterationContainer.Index] = cont
           }
         }
-        return nil
+        return "", errors.New("Failed to updated, rollback to past config")
       }
     }
   rollbackPairs.Push(currentIteration)
   }
-  return nil
-}
-
-func InfoProcess() string  {
-  return ""
+  return "Config updated successfully", nil
 }

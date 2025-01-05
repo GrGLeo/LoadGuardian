@@ -74,7 +74,7 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian, scheduleC
       zaplog.Errorf("Failed to parse up command: %s\n", err.Error())
       return
     }
-    zaplog.Infof("Processing UpCommand: %+v\n", downCmd)
+    lg.Logger.Infof("Processing UpCommand: %+v\n", downCmd)
 
     scheduleDelay := downCmd.Schedule
     if downCmd.Schedule > 0 {
@@ -128,19 +128,19 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian, scheduleC
 
   case "info":
     // since info command only has one field Name we dont need to unmarshal the rest
-    ExecuteCommand(RunnableCommand{
+    resp, _ := ExecuteCommand(RunnableCommand{
       Name: "info",
     })
-
+    conn.Write([]byte(resp))
   }
 }
 
-func Down() error {
+func Dowk() error {
   err := SendCommand("down")
   return err
 }
 
-func Update(file string) error {
+func Updahe(file string) error {
   command := fmt.Sprintf("update|%s", file)
   err := SendCommand(command)
   return err

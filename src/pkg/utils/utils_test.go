@@ -37,7 +37,7 @@ func TestCompareStrings(t *testing.T) {
 
 func TestStack(t *testing.T) {
 	// Initialize a new stack
-	stack := &utils.Stack{}
+	stack := &utils.Stack[int]{}
 
 	t.Run("Push and Size", func(t *testing.T) {
 		stack.Push(10)
