@@ -3,13 +3,10 @@ package config
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
-	"github.com/briandowns/spinner"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -41,10 +38,10 @@ func (c *Config) GetService(p bool) map[string]servicemanager.Service {
 }
 
 // CreateNetworks ensures the necessary Docker networks are created by checking their existence and creating them if they do not already exist.
-func (c *Config) CreateNetworks(cli *client.Client) error {
+func (c *Config) CreateNetworks(cli *client.Client, logger *zap.SugaredLogger) error {
   networks, err := cli.NetworkList(context.Background(), network.ListOptions{})
   if err != nil {
-    fmt.Println("Failed to retrieve networks list: ",err.Error())
+    logger.Errorw("Failed to retrieve network list", "error", err.Error())
     return err
   }
   for name, value := range c.Network {
@@ -56,15 +53,15 @@ func (c *Config) CreateNetworks(cli *client.Client) error {
       }
     }
     if networkExist {
-      fmt.Printf("%s Network %s already exist\n", greenCheck, name)
+      logger.Infow("Network already exists", "network", name)
     } else {
       opt := network.CreateOptions{
         Driver: value.Driver,
       }
       _, err := cli.NetworkCreate(context.Background(), name, opt)
-      fmt.Printf("%s Network %s created\n", greenCheck, name)
+      logger.Infow("Network created", "network", name)
       if err != nil {
-        fmt.Println("Failed to create network ",name, err.Error())
+        logger.Errorw("Failed to create network", "error", err.Error())
         return err
       }
     }
@@ -100,10 +97,10 @@ func CheckServices(sp ServiceProvider, cli *client.Client) (map[string]bool, err
 
 
 // PullServices pulls Docker images for the given services if they are not already available locally.
-func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
+func PullServices(sp ServiceProvider, p bool, cli *client.Client, logger *zap.SugaredLogger) error {
   ImageToPull, err:= CheckServices(sp, cli)
   if err != nil {
-    fmt.Println("Failed to inspect images. Pulling image for all services")
+    logger.Warnln("Failed to inspect images. Pulling image for all services")
   }
   Services := sp.GetService(p)
   wg := sync.WaitGroup{}
@@ -114,19 +111,17 @@ func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
       defer wg.Done()
       value, ok := ImageToPull[service.Image]
       if !value && ok {
-        fmt.Printf("%s Service %s already pulled\n", greenCheck, name)
+        logger.Infow("Service already pulled", "service", name)
         return nil
       }
       // Pulling Image
-      s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-      s.Suffix = fmt.Sprintf("Pulling Service %s", name)
-      s.Start()
+      logger.Infow("Pulling image", "service", name)
       _, err := cli.ImagePull(context.Background(), service.Image, image.PullOptions{})
       if err != nil {
-        s.Stop()
+        logger.Errorw("Error while pulling image", "service", name, "error", err.Error())
         return err
       }
-      s.Stop()
+      logger.Infow("Successfully pulled image", "service", name)
       return nil
     }()
   }
@@ -135,15 +130,16 @@ func PullServices(sp ServiceProvider, p bool, cli *client.Client) error {
 }
 
 // CreateAllService creates and starts the specified number of replicas for each service using the provided Docker client.
-func CreateAllService(sp ServiceProvider, p bool, cli *client.Client) (map[string][]servicemanager.Container, error) {
+func CreateAllService(sp ServiceProvider, p bool, cli *client.Client, logger *zap.SugaredLogger) (map[string][]servicemanager.Container, error) {
   runningCont := make(map[string][]servicemanager.Container)
   Services := sp.GetService(p)
 
   for name, service := range Services {
     for i := 1; i <= service.Replicas; i++ {
-      zap.L().Sugar().Infof("creating service: %s replicas: %d", name, i)
+      logger.Infow("creating container", "service", name, "replica", i)
       container, err := service.Create(cli)
       if err != nil {
+        logger.Errorw("Failed to create container", "service", name, "replica", i)
         return runningCont, err
       }
       runningCont[name] = append(runningCont[name], container)

@@ -8,12 +8,13 @@ import (
 
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
 	"github.com/GrGLeo/LoadBalancer/src/pkg/cleaner"
+	"go.uber.org/zap"
 )
 
-func PrintLogs(logChannel <-chan servicemanager.LogMessage) {
+func PrintLogs(logChannel <-chan servicemanager.LogMessage, logger *zap.SugaredLogger) {
   for logMessage := range logChannel {
     cleanMessage := cleaner.SanitizeLogMessage(logMessage.Message)
-    fmt.Printf("[Container: %s] %s\n",logMessage.ContainerName, cleanMessage)
+    logger.Infow(cleanMessage, "container", logMessage.ContainerName)
   }
 }
 

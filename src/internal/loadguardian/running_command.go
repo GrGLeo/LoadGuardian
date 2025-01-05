@@ -23,12 +23,12 @@ func StartProcress(file string){
   }
   lg.Config = c
 
-  lg.Config.CreateNetworks(lg.Client)
-  config.PullServices(&lg.Config, true, lg.Client)
+  lg.Config.CreateNetworks(lg.Client, lg.Logger)
+  config.PullServices(&lg.Config, true, lg.Client, lg.Logger)
 
-  go logger.PrintLogs(logChannel)
+  go logger.PrintLogs(logChannel, lg.Logger)
 
-  newServices, err := config.CreateAllService(&lg.Config, true, lg.Client)
+  newServices, err := config.CreateAllService(&lg.Config, true, lg.Client, lg.Logger)
   if err != nil {
     zaplog.Errorf("Error while creating service: %q", err.Error())
   }
@@ -36,7 +36,7 @@ func StartProcress(file string){
   for _, service := range lg.RunningServices {
     for _, container := range service {
       go func(c servicemanager.Container) {
-        if err := container.StartAndFetchLogs(lg.Client, logChannel); err != nil {
+        if err := container.StartAndFetchLogs(lg.Client, lg.Logger, logChannel); err != nil {
           fmt.Println(err.Error())
         }
       }(container)
@@ -55,7 +55,7 @@ func UpdateProcess(file string) error {
   cd, err := lg.Config.CompareConfig(newConfig)
 
   // Pull new services
-  err = config.PullServices(&cd, true, lg.Client)
+  err = config.PullServices(&cd, true, lg.Client, lg.Logger)
   if err != nil {
     lg.Logger.Fatalln("Failed pull services")
   }
@@ -67,13 +67,13 @@ func UpdateProcess(file string) error {
       for _, c := range containers {
         lg.Logger.Infof("Removing service: %s\n", name)
         timeout := 0
-        c.Stop(lg.Client, &timeout)
+        c.Stop(lg.Client, lg.Logger, &timeout)
       }
     }
   }
 
   // Create the new services
-  newServices, err := config.CreateAllService(&cd, true, lg.Client)
+  newServices, err := config.CreateAllService(&cd, true, lg.Client, lg.Logger)
   if err != nil {
     lg.Logger.Fatalln("Failed to create services")
   }
@@ -86,7 +86,7 @@ func UpdateProcess(file string) error {
     }
     for _, container := range containers {
       go func(c servicemanager.Container) {
-        if err := container.StartAndFetchLogs(lg.Client, logChannel); err != nil {
+        if err := container.StartAndFetchLogs(lg.Client, lg.Logger, logChannel); err != nil {
           fmt.Println(err.Error())
         }
       }(container)
@@ -95,7 +95,7 @@ func UpdateProcess(file string) error {
   }
 
   // Rolling update
-  err = config.PullServices(&cd, false, lg.Client)
+  err = config.PullServices(&cd, false, lg.Client, lg.Logger)
   if err != nil {
     lg.Logger.Errorln("Failed to pull updated services. Keeping old version running")
     return nil
@@ -120,7 +120,7 @@ func UpdateProcess(file string) error {
         continue
       }
       go func(c servicemanager.Container) {
-        if err := container.StartAndFetchLogs(lg.Client, logChannel); err != nil {
+        if err := container.StartAndFetchLogs(lg.Client, lg.Logger, logChannel); err != nil {
           fmt.Println(err.Error())
         }
       }(container)
@@ -131,7 +131,7 @@ func UpdateProcess(file string) error {
 
       if healthy {
         timeout := 0
-        pastContainer.Stop(lg.Client, &timeout)
+        pastContainer.Stop(lg.Client, lg.Logger, &timeout)
         pastContainer.Remove(lg.Client)
         matchingRunningService[i] = container
         // Store the pair in case or rollback
@@ -145,7 +145,7 @@ func UpdateProcess(file string) error {
         // container might be needed by the old image
         // Stop and remove the current iteration
         timeout := 0
-        container.Stop(lg.Client, &timeout)
+        container.Stop(lg.Client, lg.Logger, &timeout)
         container.Remove(lg.Client)
         for !rollbackPairs.IsEmpty() {
           lg.Logger.Infoln("Rolling Back...")
@@ -157,7 +157,7 @@ func UpdateProcess(file string) error {
             lg.Logger.Infoln("Rolling back Container: ", pastIterationContainer.PastService.Image)
             cont, _ := pastIterationContainer.PastService.Create(lg.Client)
             cont.Start(lg.Client)
-            pastIterationContainer.New.Stop(lg.Client, &timeout)
+            pastIterationContainer.New.Stop(lg.Client, lg.Logger, &timeout)
             pastIterationContainer.New.Remove(lg.Client)
             serviceName := pastIterationContainer.PastService.Image
             lg.RunningServices[serviceName] = append(lg.RunningServices[serviceName], cont)

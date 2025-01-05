@@ -67,13 +67,12 @@ func (c *Container) FetchLogs(cli *client.Client, logChannel chan<- LogMessage) 
   return  nil
 }
 
-func (c *Container) StartAndFetchLogs(cli *client.Client, logChannel chan<- LogMessage) error {
+func (c *Container) StartAndFetchLogs(cli *client.Client, logger *zap.SugaredLogger, logChannel chan<- LogMessage) error {
     err := c.Start(cli)
-    greenCheck := "\033[32m✓\033[0m"
-    fmt.Printf("%s %s started.\n", greenCheck, c.Name)
     if err != nil {
         return fmt.Errorf("failed to start container: %w", err)
     }
+    logger.Infow("Container started", "container", c.Name)
     // Fetch the logs in a separate goroutine
     go func() {
         err := c.FetchLogs(cli, logChannel)
@@ -87,13 +86,14 @@ func (c *Container) StartAndFetchLogs(cli *client.Client, logChannel chan<- LogM
     return nil
 }
 
-func (c *Container) Stop(cli *client.Client, timeout *int) error {
+func (c *Container) Stop(cli *client.Client, logger *zap.SugaredLogger, timeout *int) error {
   opt := container.StopOptions{
     Timeout: timeout, 
   }
   err := cli.ContainerStop(context.Background(), c.ID, opt) 
   if err != nil {
-    fmt.Printf("Error while stopping container: %s\n", c.Name)
+
+    logger.Errorw("Error while stopping container", "container", c.Name)
     return err
   }
   return nil

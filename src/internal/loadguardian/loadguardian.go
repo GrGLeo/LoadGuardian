@@ -44,7 +44,7 @@ func (lg *LoadGuardian) StopAll(timeout int) error {
   for name, containers := range lg.RunningServices {
     lg.Logger.Infof("Stopping services: %s\n", name)
     for _, c := range containers {
-      err := c.Stop(lg.Client, &timeout)
+      err := c.Stop(lg.Client, lg.Logger, &timeout)
       if err != nil {
         return err
       }
@@ -65,7 +65,7 @@ func (lg *LoadGuardian) StopService(serviceName string, timeout int) error {
     return errors.New(fmt.Sprintf("Failed to found service: %s", serviceName))
   }
   for _, c := range containers {
-    err := c.Stop(lg.Client, &timeout)
+    err := c.Stop(lg.Client, lg.Logger, &timeout)
     if err != nil {
       return err
     }
