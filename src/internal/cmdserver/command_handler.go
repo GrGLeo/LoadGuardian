@@ -125,36 +125,15 @@ func HandleSocketCommand(conn net.Conn, lg *loadguardian.LoadGuardian, scheduleC
       })
       conn.Write([]byte("Command executed successfully"))
     }
-  }
 
+  case "info":
+    // since info command only has one field Name we dont need to unmarshal the rest
+    ExecuteCommand(RunnableCommand{
+      Name: "info",
+    })
+
+  }
 }
-//  command := ""
-//
-//  parsedCommand := strings.Split(command, "|")
-//  command = parsedCommand[0]
-//  switch command {
-//  case "down":
-//    lg.CleanUp()
-//    conn.Write([]byte("Command executed successfully"))
-//    os.Exit(0)
-//
-//  case "update":
-//    if len(parsedCommand) < 2 {
-//      msg := "Incomplete update command"
-//      fmt.Println(msg)
-//      conn.Write([]byte(msg))
-//    }
-//    file := parsedCommand[1]
-//    fmt.Println(file)
-//    loadguardian.UpdateProcess(file)
-//    
-//    conn.Write([]byte("Command executed successfully"))
-//
-//  default:
-//    fmt.Fprintln(conn, "Unknown command:", command)
-//    conn.Write([]byte("Unknown command"))
-//  }
-//}
 
 func Down() error {
   err := SendCommand("down")

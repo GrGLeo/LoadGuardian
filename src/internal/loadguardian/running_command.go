@@ -173,3 +173,7 @@ func UpdateProcess(file string) error {
   }
   return nil
 }
+
+func InfoProcess() string  {
+  return ""
+}

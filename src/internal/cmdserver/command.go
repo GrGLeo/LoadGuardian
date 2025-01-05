@@ -55,8 +55,11 @@ func ExecuteCommand(cp CommandProvider) {
     os.Exit(0)
 
   case "update":
-    zaplog.Infoln("I am called here")
     loadguardian.UpdateProcess(cmd.Args.File)
+
+  case "info":
+    lg.Logger.Infoln("Gathering services information")
+    loadguardian.InfoProcess()
 
   default:
     zaplog.Warnf("Unknown command:", commandName)
