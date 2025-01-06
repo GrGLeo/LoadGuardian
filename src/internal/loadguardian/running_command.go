@@ -46,10 +46,11 @@ func StartProcress(file string) (string, error) {
   go func() {
     ticker := time.NewTicker(30 * time.Second)
     defer ticker.Stop()
-    select {
-    case <- ticker.C:
-      lg.Logger.Info("Running healthcheck")
-      lg.StatCheck()
+    for {
+      select {
+      case <- ticker.C:
+        lg.StatCheck()
+      }
     }
   }()
 
