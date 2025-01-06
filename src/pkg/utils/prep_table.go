@@ -44,9 +44,9 @@ func GenerateRow(row []string, length []int) (string, error) {
 
 
 func GenerateInterRow(length int) string {
-  row := ""
-  row += strings.Repeat("-", length - 1)
-  row += "\n"
+  row := "+"
+  row += strings.Repeat("-", length - 3)
+  row += "+\n"
   return row
 }
 
