@@ -3,6 +3,7 @@ package servicemanager
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,12 +12,15 @@ import (
 	"go.uber.org/zap"
 )
 
+
 type Container struct {
-  ID string
-  Name string
-  Url string
-  HealthCheck bool
-  Port int
+  ID string // Container ID
+  Name string // Container Name
+  Url string // Container URL
+  Health string // Container Health (starting | healthy | unhealthy)
+  CpuUsage float64
+  Memory float64
+  Port int // Container Port
 }
 
 type ContainerRollbackConfig struct {
@@ -123,6 +127,33 @@ func (c *Container) RunningCheck(cli *client.Client) (bool, error) {
   }
   return false, nil
 }
+
+func (c *Container) Info(cli *client.Client, logger *zap.SugaredLogger) {
+  resp, err := cli.ContainerInspect(context.Background(), c.ID)
+  health := resp.State.Health.Status
+  c.Health = health
+  stats, err := cli.ContainerStatsOneShot(context.Background(), c.ID)
+  if err != nil {
+    logger.Errorw("Failed to read stats", "container", c.Name, "error", err.Error())
+    return
+  }
+  defer stats.Body.Close()
+
+  var statsInfo container.StatsResponse
+  if err := json.NewDecoder(stats.Body).Decode(&statsInfo); err != nil {
+  }
+  cpuDelta := float64(statsInfo.CPUStats.CPUUsage.TotalUsage - statsInfo.PreCPUStats.CPUUsage.TotalUsage)
+  systemDelta := float64(statsInfo.CPUStats.SystemUsage - statsInfo.PreCPUStats.SystemUsage)
+  numCores := float64(len(statsInfo.CPUStats.CPUUsage.PercpuUsage))
+  cpuUsage := (cpuDelta / systemDelta) * numCores * 100.0
+  c.CpuUsage = cpuUsage
+
+  memoryUsage := float64(statsInfo.MemoryStats.Usage) / (1024 * 1024) // Convert to MB
+  memoryLimit := float64(statsInfo.MemoryStats.Limit) / (1024 * 1024) // Convert to MB
+  memoryPercent := (memoryUsage / memoryLimit) * 100.0
+  c.Memory = memoryPercent
+}
+
 
 func (c *Container) HealthChecker(cli *client.Client) (string, error) {
   inspect, err := cli.ContainerInspect(context.Background(), c.ID)

@@ -3,6 +3,7 @@ package loadguardian
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/GrGLeo/LoadBalancer/src/internal/config"
 	servicemanager "github.com/GrGLeo/LoadBalancer/src/internal/servicemanager"
@@ -41,6 +42,17 @@ func StartProcress(file string) (string, error) {
       }(container)
     }
   }
+
+  go func() {
+    ticker := time.NewTicker(30 * time.Second)
+    defer ticker.Stop()
+    select {
+    case <- ticker.C:
+      lg.Logger.Info("Running healthcheck")
+      lg.StatCheck()
+    }
+  }()
+
   return "Process started successfully", nil
 }
 
