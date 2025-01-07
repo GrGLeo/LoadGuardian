@@ -128,6 +128,16 @@ func (c *Container) RunningCheck(cli *client.Client) (bool, error) {
   return false, nil
 }
 
+
+func (c *Container) Restart( cli *client.Client, logger *zap.SugaredLogger) error {
+  err := cli.ContainerRestart(context.Background(), c.ID, container.StopOptions{})
+  if err != nil {
+    return err
+  }
+  return nil
+}
+
+
 func (c *Container) Info(cli *client.Client, logger *zap.SugaredLogger) {
   resp, err := cli.ContainerInspect(context.Background(), c.ID)
   health := resp.State.Health.Status
